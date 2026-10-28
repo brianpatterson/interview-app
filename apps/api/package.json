@@ -1,0 +1,19 @@
+{
+  "name": "@app/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=../../.env src/index.ts",
+    "start": "node --env-file=../../.env --import tsx src/index.ts",
+    "typecheck": "tsc"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.23.15"
+  },
+  "dependencies": {
+    "@app/shared": "workspace:*",
+    "fastify": "^5.12.7",
+    "pg": "^8.23.1"
+  }
+}
