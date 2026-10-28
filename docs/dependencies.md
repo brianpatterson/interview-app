@@ -1,0 +1,73 @@
+# Dependency register
+
+Every dependency is listed here with what it does, the main alternative, and why it won.
+**Adding, removing or swapping a dependency means updating this file in the same PR.** CI runs
+`pnpm check:deps`, which fails if any `package.json` dependency is missing from this file or if
+this file lists a package that is no longer installed. Bigger choices also get an
+[ADR](adr/README.md).
+
+Format: each package name appears once, in backticks, in the first column.
+
+## Runtime: API (`apps/api`)
+
+| Package       | Purpose                         | Alternative           | Why this one                                                                                                                                                                                                                              |
+| ------------- | ------------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fastify`     | HTTP server and routing         | Express, Hono         | Fast, first-class TypeScript, async error handling, `inject()` for testing without a port. Express is slower with weaker types; Hono's strengths (edge runtimes) aren't needed. [ADR-0007](adr/0007-separate-spa-and-rest-api.md)         |
+| `drizzle-orm` | Type-safe queries               | Prisma, Kysely        | SQL-shaped TS API with no codegen and a thin runtime. Prisma hides SQL and is heavier; Kysely has no migration generation. [ADR-0004](adr/0004-drizzle-orm-and-migrations.md)                                                             |
+| `pg`          | Postgres driver (node-postgres) | `postgres` (porsager) | The most widely used Node driver, supported by Drizzle and every hosting guide. `postgres` is faster but less common in docs and examples.                                                                                                |
+| `zod`         | Runtime validation of requests  | Valibot, TypeBox      | Industry standard, and shared with the web app as the contract. Valibot is smaller (matters for browsers, less so here); TypeBox fits Fastify's JSON Schema validation but is less ergonomic. [ADR-0005](adr/0005-shared-zod-contract.md) |
+
+## Runtime: Web (`apps/web`)
+
+| Package                 | Purpose                                   | Alternative                  | Why this one                                                                                                                                                                      |
+| ----------------------- | ----------------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `react`                 | UI library                                | Vue, Svelte                  | The largest ecosystem and job market, which serves the learning goal. Svelte is lighter but less transferable.                                                                    |
+| `react-dom`             | React's browser renderer                  | (none; it's part of React)   | Required to render React in the browser.                                                                                                                                          |
+| `@tanstack/react-query` | Server-state cache, refetching, mutations | SWR, hand-rolled `useEffect` | Handles caching, invalidation after writes, and retries, with first-class mutations. SWR is lighter but weaker for mutations; hand-rolled fetching re-implements all of it badly. |
+
+## Shared (`packages/shared`)
+
+| Package                 | Purpose                                             | Alternative                      | Why this one                                                     |
+| ----------------------- | --------------------------------------------------- | -------------------------------- | ---------------------------------------------------------------- |
+| `@interview-app/shared` | Workspace package: API contract (schemas and types) | Duplicating types in web and api | One source of truth. [ADR-0005](adr/0005-shared-zod-contract.md) |
+
+(`zod` is also a dependency of `packages/shared`; see above.)
+
+## Build and dev tooling
+
+| Package                     | Purpose                                            | Alternative                               | Why this one                                                                                                                                              |
+| --------------------------- | -------------------------------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `typescript`                | Type checker                                       | TypeScript 7 (native Go port)             | Pinned to `~6.0` because `typescript-eslint` doesn't support TS 7 yet. Move to 7 when it does (much faster type-checking).                                |
+| `vite`                      | Dev server and bundler for the web app             | webpack, Parcel                           | Near-instant dev server, the default for new React apps, a simple config. webpack is slow and verbose.                                                    |
+| `@vitejs/plugin-react`      | React support (JSX, Fast Refresh) in Vite          | `@vitejs/plugin-react-swc`                | The official default. The SWC variant is faster on big apps, which doesn't matter at this size.                                                           |
+| `tsx`                       | Runs the API's TS directly in dev, with watch mode | `ts-node`, Node's built-in type stripping | Fast (esbuild), zero config, handles path and ESM quirks. Node's native stripping doesn't support some TS syntax; ts-node is slower and fussier with ESM. |
+| `drizzle-kit`               | Generates SQL migrations from the schema           | Hand-written SQL migrations               | Diffs `schema.ts` against migration history, so humans review generated SQL instead of writing it.                                                        |
+| `vitest`                    | Test runner                                        | Jest, `node:test`                         | Native ESM and TS, Jest-compatible API, fast. Jest needs transform config for ESM and TS; `node:test` lacks a mature ecosystem.                           |
+| `eslint`                    | Linter                                             | Biome, oxlint                             | The broadest rule ecosystem (React hooks, typescript-eslint). Biome is faster and also formats, but has fewer rules. Revisit if linting gets slow.        |
+| `@eslint/js`                | ESLint's recommended JS rules                      | (none; part of ESLint)                    | The base rule set for flat config.                                                                                                                        |
+| `typescript-eslint`         | TS parser and rules for ESLint                     | (none; the standard)                      | The only maintained way to lint TS with ESLint.                                                                                                           |
+| `eslint-plugin-react-hooks` | Enforces the Rules of Hooks                        | (none; the standard)                      | Catches hook-ordering and dependency bugs that types can't.                                                                                               |
+| `globals`                   | Browser and Node global definitions for ESLint     | Declaring globals by hand                 | The standard companion to ESLint flat config.                                                                                                             |
+| `prettier`                  | Code formatter                                     | Biome, dprint                             | Universal editor support and the de facto standard. Biome formats faster but is a second tool to learn alongside ESLint.                                  |
+
+## Type definitions
+
+| Package            | Purpose               | Alternative | Why this one                                           |
+| ------------------ | --------------------- | ----------- | ------------------------------------------------------ |
+| `@types/node`      | Types for Node APIs   | (none)      | Required for `process`, `node:url` and the rest in TS. |
+| `@types/pg`        | Types for `pg`        | (none)      | `pg` doesn't ship its own types.                       |
+| `@types/react`     | Types for React       | (none)      | React doesn't ship its own types.                      |
+| `@types/react-dom` | Types for `react-dom` | (none)      | Same.                                                  |
+
+## Tools and infrastructure (outside package.json)
+
+These aren't checked by CI. Keep them current by hand.
+
+| Tool                | Purpose                        | Alternative                            | Why this one                                                                                                                                             |
+| ------------------- | ------------------------------ | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Node.js 26 (LTS)    | JavaScript runtime             | Bun, Deno                              | The most compatible runtime everywhere you deploy. Bun is faster but has occasional compatibility gaps.                                                  |
+| pnpm                | Package manager and workspaces | npm, Bun, Yarn                         | Strict `node_modules` (no phantom dependencies), fast, excellent workspace support.                                                                      |
+| fnm                 | Node version manager           | nvm, Volta, mise                       | Fast (Rust), reads `.node-version`, switches automatically on `cd`. nvm is slow to start the shell. mise manages many languages, which isn't needed yet. |
+| OrbStack            | Docker on macOS                | Docker Desktop, Colima                 | Lighter and faster on Apple Silicon. Docker Desktop is heavier and needs a paid license for larger companies.                                            |
+| PostgreSQL 17 image | Database                       | see [ADR-0003](adr/0003-postgresql.md) |                                                                                                                                                          |
+| GitHub Actions      | CI                             | CircleCI, GitLab CI                    | Built into GitHub, free for this use, no extra account.                                                                                                  |
