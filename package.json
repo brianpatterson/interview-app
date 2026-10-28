@@ -1,5 +1,5 @@
 {
-  "name": "app",
+  "name": "interview-app",
   "private": true,
   "type": "module",
   "scripts": {

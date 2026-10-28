@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { HealthResponse } from '@app/shared';
+import type { HealthResponse } from '@interview-app/shared';
 
 export function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
@@ -14,7 +14,7 @@ export function App() {
 
   return (
     <main style={{ fontFamily: 'system-ui', padding: 32 }}>
-      <h1>App</h1>
+      <h1>Interview App</h1>
       {error && <p>API error: {error}</p>}
       {health ? (
         <p>

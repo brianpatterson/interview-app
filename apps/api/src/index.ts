@@ -1,5 +1,5 @@
 import Fastify from 'fastify';
-import type { HealthResponse } from '@app/shared';
+import type { HealthResponse } from '@interview-app/shared';
 import { pool } from './db.js';
 
 const app = Fastify({ logger: true });

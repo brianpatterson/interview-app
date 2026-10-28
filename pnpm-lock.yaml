@@ -35,7 +35,7 @@ importers:
 
   apps/api:
     dependencies:
-      '@app/shared':
+      '@interview-app/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       fastify:
@@ -54,7 +54,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@app/shared':
+      '@interview-app/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       react:

@@ -1,4 +1,4 @@
-# app
+# interview-app
 
 Full-stack TypeScript monorepo (pnpm workspaces).
 

@@ -1,5 +1,5 @@
 {
-  "name": "@app/shared",
+  "name": "@interview-app/shared",
   "private": true,
   "type": "module",
   "exports": {
