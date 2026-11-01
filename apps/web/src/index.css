@@ -47,3 +47,25 @@ button.link {
   color: #d33;
   flex-basis: 100%;
 }
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+}
+.auth {
+  max-width: 360px;
+}
+.auth form,
+.providers {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.divider {
+  text-align: center;
+  opacity: 0.6;
+}
+.auth-links {
+  margin-top: 16px;
+}

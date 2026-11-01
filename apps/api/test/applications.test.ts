@@ -1,30 +1,24 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { sql } from 'drizzle-orm';
 import type { Application } from '@interview-app/shared';
-import { buildApp } from '../src/app.js';
-import { createDb } from '../src/db/index.js';
-import { runMigrations } from '../src/db/migrate.js';
+import { setupTestApp, signUp } from './helpers.js';
 
-const { db, pool } = createDb(
-  process.env.TEST_DATABASE_URL ?? 'postgres://app:app@localhost:5432/app_test',
-);
-const app = buildApp(db, { logger: false });
+const t = setupTestApp();
+const { app } = t;
+let cookie: string;
 
-beforeAll(async () => {
-  await runMigrations(db);
-});
-
+beforeAll(() => t.migrate());
 beforeEach(async () => {
-  await db.execute(sql`truncate table applications`);
+  await t.reset();
+  ({ cookie } = await signUp(t));
 });
+afterAll(() => t.close());
 
-afterAll(async () => {
-  await app.close();
-  await pool.end();
-});
+function request(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, payload?: object) {
+  return app.inject({ method, url, payload, headers: { cookie } });
+}
 
 async function create(body: object) {
-  const res = await app.inject({ method: 'POST', url: '/api/applications', payload: body });
+  const res = await request('POST', '/api/applications', body);
   return { res, json: res.json<Application>() };
 }
 
@@ -49,22 +43,16 @@ describe('applications API', () => {
   it('lists applications most recently updated first', async () => {
     const { json: first } = await create({ company: 'First', jobTitle: 'SWE' });
     await create({ company: 'Second', jobTitle: 'SWE' });
-    await app.inject({
-      method: 'PATCH',
-      url: `/api/applications/${first.id}`,
-      payload: { status: 'screening' },
-    });
+    await request('PATCH', `/api/applications/${first.id}`, { status: 'screening' });
 
-    const res = await app.inject({ method: 'GET', url: '/api/applications' });
+    const res = await request('GET', '/api/applications');
     expect(res.json<Application[]>().map((a) => a.company)).toEqual(['First', 'Second']);
   });
 
   it('updates status and bumps updatedAt', async () => {
     const { json: created } = await create({ company: 'Acme', jobTitle: 'SWE' });
-    const res = await app.inject({
-      method: 'PATCH',
-      url: `/api/applications/${created.id}`,
-      payload: { status: 'interviewing' },
+    const res = await request('PATCH', `/api/applications/${created.id}`, {
+      status: 'interviewing',
     });
     const updated = res.json<Application>();
     expect(res.statusCode).toBe(200);
@@ -75,28 +63,21 @@ describe('applications API', () => {
 
   it('rejects an unknown status', async () => {
     const { json: created } = await create({ company: 'Acme', jobTitle: 'SWE' });
-    const res = await app.inject({
-      method: 'PATCH',
-      url: `/api/applications/${created.id}`,
-      payload: { status: 'ghosted' },
-    });
+    const res = await request('PATCH', `/api/applications/${created.id}`, { status: 'ghosted' });
     expect(res.statusCode).toBe(400);
   });
 
   it('deletes an application', async () => {
     const { json: created } = await create({ company: 'Acme', jobTitle: 'SWE' });
-    const del = await app.inject({ method: 'DELETE', url: `/api/applications/${created.id}` });
+    const del = await request('DELETE', `/api/applications/${created.id}`);
     expect(del.statusCode).toBe(204);
-    const get = await app.inject({ method: 'GET', url: `/api/applications/${created.id}` });
+    const get = await request('GET', `/api/applications/${created.id}`);
     expect(get.statusCode).toBe(404);
   });
 
   it('returns 404 for unknown or malformed ids', async () => {
-    const unknown = await app.inject({
-      method: 'GET',
-      url: '/api/applications/00000000-0000-4000-8000-000000000000',
-    });
-    const malformed = await app.inject({ method: 'GET', url: '/api/applications/abc' });
+    const unknown = await request('GET', '/api/applications/00000000-0000-4000-8000-000000000000');
+    const malformed = await request('GET', '/api/applications/abc');
     expect(unknown.statusCode).toBe(404);
     expect(malformed.statusCode).toBe(404);
   });

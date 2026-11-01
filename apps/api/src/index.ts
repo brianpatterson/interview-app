@@ -1,8 +1,9 @@
 import { buildApp } from './app.js';
 import { createDb } from './db/index.js';
+import { loadEnv } from './env.js';
 
-const { db } = createDb(process.env.DATABASE_URL!);
-const app = buildApp(db);
+const env = loadEnv();
+const { db } = createDb(env.DATABASE_URL);
+const app = buildApp(db, env);
 
-const port = Number(process.env.API_PORT ?? 3001);
-await app.listen({ port, host: '0.0.0.0' });
+await app.listen({ port: env.API_PORT, host: '0.0.0.0' });
