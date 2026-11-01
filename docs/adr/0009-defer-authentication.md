@@ -1,6 +1,6 @@
 # 0009. Defer authentication; single-tenant for now
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR-0011](0011-authentication.md)
 - **Date:** 2026-10-28
 
 ## Context

@@ -5,18 +5,19 @@
 > choice lives in [ADRs](adr/README.md). Each dependency's alternatives are in
 > [dependencies.md](dependencies.md).
 
-_Last updated: 2026-10-31_
+_Last updated: 2026-11-01_
 
 ## 1. What the system does
 
 Interview App tracks software-engineering job applications: the company, the role, a link to the
-job description, where the application stands, and when it was created and last changed.
+job description, where the application stands, and when it was created and last changed. Each
+user signs in (email and password, GitHub, or Google) and only ever sees their own applications.
 
 ## 2. Requirements and scale assumptions
 
 | Dimension      | Now                                                           | Planned                    |
 | -------------- | ------------------------------------------------------------- | -------------------------- |
-| Users          | 1 (no auth yet, [ADR-0009](adr/0009-defer-authentication.md)) | ~12, possibly ~1,000s      |
+| Users          | multi-user with auth ([ADR-0011](adr/0011-authentication.md)) | ~12, possibly ~1,000s      |
 | Rows per user  | hundreds                                                      | low thousands              |
 | Read/write mix | read-heavy (list view), occasional writes                     | same                       |
 | Availability   | local dev only                                                | single region, best effort |
@@ -44,18 +45,19 @@ flowchart LR
 
   db[(PostgreSQL 17)]
 
-  web -->|JSON over /api/*| api
+  web -->|JSON over /api/*<br/>session cookie| api
   api -->|SQL via Drizzle| db
+  api -.OAuth.-> idp[GitHub / Google]
   shared[[packages/shared<br/>Zod schemas + types]] -.imported by.-> web
   shared -.imported by.-> api
 ```
 
-| Container         | Responsibility                                                | Tech                         |
-| ----------------- | ------------------------------------------------------------- | ---------------------------- |
-| `apps/web`        | UI. Server state is cached and refetched with TanStack Query. | React 19, Vite 8             |
-| `apps/api`        | HTTP API, input validation, persistence                       | Fastify 5, Drizzle ORM, `pg` |
-| `packages/shared` | API contract: Zod schemas, TS types, status list              | Zod 4                        |
-| PostgreSQL        | System of record                                              | Postgres 17 (Docker locally) |
+| Container         | Responsibility                                                | Tech                                      |
+| ----------------- | ------------------------------------------------------------- | ----------------------------------------- |
+| `apps/web`        | UI. Server state is cached and refetched with TanStack Query. | React 19, Vite 8                          |
+| `apps/api`        | HTTP API, auth (sessions, OAuth), validation, persistence     | Fastify 5, Better Auth, Drizzle ORM, `pg` |
+| `packages/shared` | API contract: Zod schemas, TS types, status list              | Zod 4                                     |
+| PostgreSQL        | System of record                                              | Postgres 17 (Docker locally)              |
 
 In local dev, Vite proxies `/api/*` to the API, so the browser sees one origin and there is no
 CORS setup. Production will keep the same-origin approach (section 7).
@@ -64,22 +66,55 @@ CORS setup. Production will keep the same-origin approach (section 7).
 
 ```mermaid
 erDiagram
+  users ||--o{ applications : owns
+  users ||--o{ sessions : has
+  users ||--o{ accounts : "signs in with"
+  users {
+    text id PK
+    text email "UNIQUE"
+    text name
+    boolean email_verified
+  }
+  sessions {
+    text id PK
+    text token "UNIQUE, in the httpOnly cookie"
+    text user_id FK
+    timestamptz expires_at
+  }
+  accounts {
+    text id PK
+    text user_id FK
+    text provider_id "credential | github | google"
+    text password "scrypt hash, credential only"
+  }
+  verifications {
+    text id PK
+    text identifier "e.g. reset-password token"
+    timestamptz expires_at
+  }
   applications {
     uuid id PK "gen_random_uuid()"
+    text user_id FK "NOT NULL, ON DELETE CASCADE"
     text company "NOT NULL"
     text job_title "NOT NULL"
     text job_url "nullable"
     application_status status "NOT NULL DEFAULT 'applied'"
-    timestamptz created_at "NOT NULL DEFAULT now(): also the application date"
-    timestamptz updated_at "NOT NULL DEFAULT now(): bumped on every update"
+    timestamptz created_at "also the application date"
+    timestamptz updated_at "bumped on every update"
   }
 ```
 
+- **Tenant isolation:** every `applications` query filters on `user_id` from the session. Another
+  user's ids return 404, never 403, so the API doesn't confirm they exist. Tested in
+  `apps/api/test/auth.test.ts`.
+- `users`, `sessions`, `accounts` and `verifications` are shaped by Better Auth
+  ([ADR-0011](adr/0011-authentication.md)). One user can have several `accounts` (a password plus
+  GitHub, say), which is how account linking works.
 - `application_status` is a Postgres enum: `applied → screening → interviewing → offer →
-accepted`, plus the terminal states `rejected` and `withdrawn`. Any status can move to any
-  other; transitions aren't enforced yet. See [ADR-0006](adr/0006-status-enum-and-dates.md).
-- Index `applications_updated_at_idx (updated_at)` serves the default "most recently updated
-  first" list. When users arrive it becomes `(user_id, updated_at DESC)`.
+accepted`, plus the terminal states `rejected` and `withdrawn`. Transitions aren't enforced
+  ([ADR-0006](adr/0006-status-enum-and-dates.md)).
+- Index `applications_user_id_updated_at_idx (user_id, updated_at DESC)` serves the only list
+  query: one user's applications, newest first.
 - Source of truth: `apps/api/src/db/schema.ts`. Migrations are generated into `apps/api/drizzle/`
   ([ADR-0004](adr/0004-drizzle-orm-and-migrations.md)).
 
@@ -88,19 +123,23 @@ accepted`, plus the terminal states `rejected` and `withdrawn`. Any status can m
 All routes are JSON under `/api`. Request bodies are validated with the shared Zod schemas
 ([ADR-0005](adr/0005-shared-zod-contract.md)).
 
-| Method | Path                    | Success | Errors                                    |
-| ------ | ----------------------- | ------- | ----------------------------------------- |
-| GET    | `/api/health`           | 200     | (reports `db: "down"` instead of failing) |
-| GET    | `/api/applications`     | 200     |                                           |
-| GET    | `/api/applications/:id` | 200     | 404 for an unknown or malformed id        |
-| POST   | `/api/applications`     | 201     | 400 for invalid input                     |
-| PATCH  | `/api/applications/:id` | 200     | 400, 404                                  |
-| DELETE | `/api/applications/:id` | 204     | 404                                       |
+| Method   | Path                    | Auth    | Success | Errors                                                                |
+| -------- | ----------------------- | ------- | ------- | --------------------------------------------------------------------- |
+| GET      | `/api/health`           | public  | 200     | (reports `db: "down"` instead of failing)                             |
+| GET      | `/api/auth-config`      | public  | 200     | (lists enabled social providers)                                      |
+| GET/POST | `/api/auth/*`           | public  | varies  | Better Auth: sign-up/in/out, OAuth callbacks, password reset, session |
+| GET      | `/api/applications`     | session | 200     | 401                                                                   |
+| GET      | `/api/applications/:id` | session | 200     | 401, 404 (unknown, malformed, or not yours)                           |
+| POST     | `/api/applications`     | session | 201     | 400, 401                                                              |
+| PATCH    | `/api/applications/:id` | session | 200     | 400, 401, 404                                                         |
+| DELETE   | `/api/applications/:id` | session | 204     | 401, 404                                                              |
 
 The list isn't paginated. That's fine for hundreds of rows per user, and cursor pagination on
 `(updated_at, id)` is the planned next step.
 
-## 6. Request flow: changing a status
+## 6. Request flows
+
+### Changing a status
 
 ```mermaid
 sequenceDiagram
@@ -109,13 +148,48 @@ sequenceDiagram
   participant A as API (Fastify)
   participant D as Postgres
   U->>W: pick "interviewing"
-  W->>A: PATCH /api/applications/:id {status}
+  W->>A: PATCH /api/applications/:id {status} + session cookie
+  A->>D: look up session by token
+  D-->>A: user_id (or nothing → 401)
   A->>A: validate with updateApplicationSchema
-  A->>D: UPDATE … SET status, updated_at=now() RETURNING *
-  D-->>A: row
+  A->>D: UPDATE … WHERE id = :id AND user_id = :user RETURNING *
+  D-->>A: row (or nothing → 404)
   A-->>W: 200 Application
   W->>W: invalidate ["applications"] → refetch list
 ```
+
+### Signing in with GitHub (OAuth 2.0 authorization code flow)
+
+```mermaid
+sequenceDiagram
+  participant B as Browser
+  participant A as API (Better Auth)
+  participant G as GitHub
+  B->>A: POST /api/auth/sign-in/social {provider: github}
+  A-->>B: redirect URL (with state + PKCE challenge)
+  B->>G: user approves the app
+  G-->>B: redirect to /api/auth/callback/github?code=…&state=…
+  B->>A: GET callback
+  A->>G: exchange code (+ PKCE verifier) for tokens, fetch profile
+  A->>A: find or create user, link account by verified email
+  A-->>B: Set-Cookie session (httpOnly, SameSite=Lax), redirect to /
+```
+
+### Security properties
+
+- **Sessions** are opaque random tokens stored in Postgres. They go in an `httpOnly`,
+  `SameSite=Lax` cookie, which page JavaScript can't read, so a cross-site scripting bug can't
+  steal it. Sign-out deletes the row, which revokes the session immediately (unlike a JWT).
+- **CSRF:** any state-changing request that carries a cookie must have an `Origin` matching
+  `BETTER_AUTH_URL`, and is otherwise rejected with 403. Better Auth turns this check off when
+  `NODE_ENV=test`, so the config forces it on and a test proves it.
+- **Passwords:** at least 10 characters, hashed with scrypt by Better Auth. Reset tokens are
+  single-use and expire.
+- **Brute force:** Better Auth's rate limiter (in-memory, production only) throttles auth
+  endpoints. With more than one API instance it would need shared storage
+  ([ADR-0011](adr/0011-authentication.md)).
+- **Email:** for now, emails (password reset links) are written to the API log. A real provider
+  ships with the production deploy.
 
 ## 7. Environments and delivery
 
@@ -127,10 +201,9 @@ sequenceDiagram
 
 ## 8. Known limits and what changes at scale
 
-| Trigger                         | Change                                                                                                                   |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| More than one user              | Auth, `user_id` foreign key on `applications`, every query scoped by user ([ADR-0009](adr/0009-defer-authentication.md)) |
-| Need for history and analytics  | Append-only `application_events` table, so `updated_at` stops being the only trace                                       |
-| Lists in the thousands per user | Cursor pagination, plus server-side filter and sort                                                                      |
-| Read load beyond one Postgres   | Connection pooling (PgBouncer), then a read replica. Caching only if measurements show it's needed                       |
-| Multiple API instances          | Already stateless, so add a load balancer and scale horizontally                                                         |
+| Trigger                         | Change                                                                                                            |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Need for history and analytics  | Append-only `application_events` table, so `updated_at` stops being the only trace                                |
+| Lists in the thousands per user | Cursor pagination, plus server-side filter and sort                                                               |
+| Read load beyond one Postgres   | Connection pooling (PgBouncer), then a read replica. Caching only if measurements show it's needed                |
+| Multiple API instances          | Already stateless (sessions live in Postgres), so add a load balancer. Move the rate limiter to Postgres or Redis |
