@@ -8,14 +8,15 @@ history of _why_ the system looks the way it does is never lost.
 Write an ADR when a choice is hard to reverse, affects more than one component, or is something
 you'd want to explain in an interview. Copy [template.md](template.md).
 
-| #    | Decision                                                                                      | Status   |
-| ---- | --------------------------------------------------------------------------------------------- | -------- |
-| 0001 | [Record architecture decisions](0001-record-architecture-decisions.md)                        | Accepted |
-| 0002 | [TypeScript monorepo with pnpm workspaces](0002-typescript-monorepo-pnpm.md)                  | Accepted |
-| 0003 | [PostgreSQL as the system of record](0003-postgresql.md)                                      | Accepted |
-| 0004 | [Drizzle ORM with checked-in SQL migrations](0004-drizzle-orm-and-migrations.md)              | Accepted |
-| 0005 | [Shared Zod schemas as the API contract](0005-shared-zod-contract.md)                         | Accepted |
-| 0006 | [Status as a Postgres enum; creation date as application date](0006-status-enum-and-dates.md) | Accepted |
-| 0007 | [Separate SPA and REST API](0007-separate-spa-and-rest-api.md)                                | Accepted |
-| 0008 | [Integration tests against a real Postgres](0008-integration-tests-real-postgres.md)          | Accepted |
-| 0009 | [Defer authentication; single-tenant for now](0009-defer-authentication.md)                   | Accepted |
+| #    | Decision                                                                                                         | Status   |
+| ---- | ---------------------------------------------------------------------------------------------------------------- | -------- |
+| 0001 | [Record architecture decisions](0001-record-architecture-decisions.md)                                           | Accepted |
+| 0002 | [TypeScript monorepo with pnpm workspaces](0002-typescript-monorepo-pnpm.md)                                     | Accepted |
+| 0003 | [PostgreSQL as the system of record](0003-postgresql.md)                                                         | Accepted |
+| 0004 | [Drizzle ORM with checked-in SQL migrations](0004-drizzle-orm-and-migrations.md)                                 | Accepted |
+| 0005 | [Shared Zod schemas as the API contract](0005-shared-zod-contract.md)                                            | Accepted |
+| 0006 | [Status as a Postgres enum; creation date as application date](0006-status-enum-and-dates.md)                    | Accepted |
+| 0007 | [Separate SPA and REST API](0007-separate-spa-and-rest-api.md)                                                   | Accepted |
+| 0008 | [Integration tests against a real Postgres](0008-integration-tests-real-postgres.md)                             | Accepted |
+| 0009 | [Defer authentication; single-tenant for now](0009-defer-authentication.md)                                      | Accepted |
+| 0010 | [Public repository with automated supply-chain and code scanning](0010-public-repo-and-supply-chain-scanning.md) | Accepted |

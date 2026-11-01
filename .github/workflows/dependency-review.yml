@@ -1,0 +1,20 @@
+name: Dependency review
+
+# Fails a PR that adds a dependency with a known vulnerability or a license we can't use.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate
+          deny-licenses: AGPL-1.0-or-later, GPL-2.0-or-later, GPL-3.0-or-later
+          comment-summary-in-pr: on-failure

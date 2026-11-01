@@ -5,7 +5,7 @@
 > choice lives in [ADRs](adr/README.md). Each dependency's alternatives are in
 > [dependencies.md](dependencies.md).
 
-_Last updated: 2026-10-28_
+_Last updated: 2026-10-31_
 
 ## 1. What the system does
 
@@ -119,11 +119,11 @@ sequenceDiagram
 
 ## 7. Environments and delivery
 
-| Environment | Status            | Notes                                                                                 |
-| ----------- | ----------------- | ------------------------------------------------------------------------------------- |
-| Local       | ✅ running        | `docker compose` Postgres (databases `app` and `app_test`), `pnpm dev`                |
-| CI          | ✅ GitHub Actions | lint, format, typecheck, dependency register, migration drift, tests against Postgres |
-| Production  | ⏳ not yet        | Hosting decision pending (it will be its own ADR)                                     |
+| Environment | Status            | Notes                                                                                                                                                                                                                                                          |
+| ----------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local       | ✅ running        | `docker compose` Postgres (databases `app` and `app_test`), `pnpm dev`                                                                                                                                                                                         |
+| CI          | ✅ GitHub Actions | `check` job (required): lint, format, typecheck, dependency register, migration drift, tests against Postgres. Also CodeQL and dependency review on every PR, and weekly Dependabot update PRs ([ADR-0010](adr/0010-public-repo-and-supply-chain-scanning.md)) |
+| Production  | ⏳ not yet        | Hosting decision pending (it will be its own ADR)                                                                                                                                                                                                              |
 
 ## 8. Known limits and what changes at scale
 
