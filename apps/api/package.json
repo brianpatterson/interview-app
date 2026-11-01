@@ -5,15 +5,22 @@
   "scripts": {
     "dev": "tsx watch --env-file=../../.env src/index.ts",
     "start": "node --env-file=../../.env --import tsx src/index.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx --env-file=../../.env src/migrate.ts",
+    "test": "vitest run",
     "typecheck": "tsc"
   },
   "devDependencies": {
     "@types/pg": "^8.23.1",
-    "tsx": "^4.23.15"
+    "drizzle-kit": "^0.31.11",
+    "tsx": "^4.23.15",
+    "vitest": "^5.0.5"
   },
   "dependencies": {
     "@interview-app/shared": "workspace:*",
+    "drizzle-orm": "^0.45.4",
     "fastify": "^5.12.7",
-    "pg": "^8.23.1"
+    "pg": "^8.23.1",
+    "zod": "^4.6.7"
   }
 }

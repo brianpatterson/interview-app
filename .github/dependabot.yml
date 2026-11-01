@@ -1,0 +1,44 @@
+# Weekly dependency updates. Minor and patch bumps are grouped into one PR per ecosystem to keep
+# the noise down; major bumps get their own PRs because they need reading. Security updates are
+# separate and arrive as soon as an advisory is published.
+version: 2
+updates:
+  - package-ecosystem: npm # covers the whole pnpm workspace via the root lockfile
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Pinned to ~6.0 until typescript-eslint supports TS 7. See docs/dependencies.md.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns: ['*']
+
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: chore
+    ignore:
+      # Postgres major upgrades need a data migration; do them deliberately.
+      - dependency-name: postgres
+        update-types: [version-update:semver-major]
