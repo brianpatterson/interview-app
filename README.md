@@ -15,13 +15,14 @@ Track software-engineering job applications. Also a learning project for systems
 - [Architecture](docs/architecture.md): the system as it is now (diagrams, data model, API, scale limits)
 - [Architecture Decision Records](docs/adr/README.md): why it's built this way
 - [Dependency register](docs/dependencies.md): every dependency, its alternative, and why it won
+- [Roadmap](docs/roadmap.md): production deploy, the software factory, and quality layers
 - [CLAUDE.md](CLAUDE.md): rules for AI agents (and humans) changing this repo
 
 ## Run it
 
 ```bash
 pnpm install
-cp .env.example .env   # first time only
+cp .env.example .env   # first time only, then set BETTER_AUTH_SECRET (openssl rand -base64 32)
 pnpm db:up             # start Postgres in Docker (creates app and app_test databases)
 pnpm db:migrate        # apply migrations
 pnpm dev               # start web + api
