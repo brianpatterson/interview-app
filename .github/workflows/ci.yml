@@ -5,6 +5,10 @@ on:
   push:
     branches: [main]
 
+# Least privilege: jobs only read the repo. Grant more per job if one ever needs it.
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -28,7 +32,7 @@ jobs:
       TEST_DATABASE_URL: postgres://app:app@localhost:5432/app_test
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - uses: actions/setup-node@v7
         with:
           node-version-file: .node-version
@@ -56,3 +60,32 @@ jobs:
           }
       - name: Test
         run: pnpm test
+
+  # The production images must build. They're not pushed here; the deploy pipeline does that.
+  images:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [api, web]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: apps/${{ matrix.app }}/Dockerfile
+          push: false
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+
+  infra:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v7
+      - uses: opentofu/setup-opentofu@9d84900f3238fab8cd84ce47d658d25dd008be2f # v1.0.8
+      - run: tofu fmt -check -recursive
+      - run: tofu init -backend=false
+      - run: tofu validate

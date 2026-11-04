@@ -9,7 +9,8 @@ import { applicationRoutes } from './routes/applications.js';
 import { authRoutes } from './routes/auth.js';
 
 export function buildApp(db: Db, env: Env, opts: { logger?: boolean; sendEmail?: SendEmail } = {}) {
-  const app = Fastify({ logger: opts.logger ?? true });
+  // Behind Caddy in production (and Vite in dev): use X-Forwarded-* for the client IP and protocol.
+  const app = Fastify({ logger: opts.logger ?? true, trustProxy: true });
   const auth = createAuth(db, env, opts.sendEmail ?? logMailer(app.log));
 
   app.get('/api/health', async (): Promise<HealthResponse> => {

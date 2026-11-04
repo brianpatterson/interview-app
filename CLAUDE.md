@@ -9,6 +9,8 @@ every change, not an afterthought.**
 - `apps/web`: React 19 + Vite SPA. Uses TanStack Query for server state and calls `/api/*` (Vite proxies to the API).
 - `apps/api`: Fastify 5 + Drizzle ORM + Postgres. `src/app.ts` builds the app, `src/routes/` holds routes, `src/db/schema.ts` is the schema source of truth, `src/auth.ts` configures Better Auth, `src/env.ts` validates environment variables.
 - `packages/shared`: Zod schemas and types, the API contract. Consumed as TS source.
+- `infra/`: OpenTofu for production (Hetzner server, volume, IPs, firewall, Cloudflare DNS) and cloud-init. See `infra/README.md`.
+- `compose.prod.yml`, `apps/*/Dockerfile`, `apps/web/Caddyfile`: the production runtime.
 - `docs/`: `architecture.md` (current state), `adr/` (decisions), `dependencies.md` (dependency register), `roadmap.md` (where this is going).
 
 ## Commands
@@ -44,10 +46,15 @@ pnpm check          # lint + format check + typecheck + dependency register + te
 8. **Auth and tenancy:** every route that touches user data runs behind the session hook in
    `routes/applications.ts` (or an equivalent one), and every query filters on `req.userId`.
    Another user's rows are a 404, never a 403. Add a cross-user test for any new resource.
-9. **Config:** new environment variables go in `src/env.ts` (validated) and `.env.example`
-   (documented). Never commit secrets. `.env` is git-ignored.
+9. **Config:** new environment variables go in `src/env.ts` (validated), `.env.example`
+   (documented), and, if production needs them, `compose.prod.yml` and `.env.prod.example`. Never commit secrets. `.env` is git-ignored.
+10. **Infrastructure:** changes to `infra/` must pass `tofu fmt -check` and `tofu validate`. Never
+    run `tofu apply` yourself; a human reviews the plan and applies it.
 
 ## Conventions
 
 - Conventional commit subjects (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`).
 - TypeScript is pinned to `~6.0` until typescript-eslint supports TS 7.
+- GitHub Actions: pin third-party actions (anything outside `actions/*` and `github/*`) to a full
+  commit SHA with the version in a comment. Dependabot keeps the pins current. Give every workflow
+  an explicit `permissions:` block (default `contents: read`).

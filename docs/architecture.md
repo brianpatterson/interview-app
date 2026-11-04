@@ -5,7 +5,7 @@
 > choice lives in [ADRs](adr/README.md). Each dependency's alternatives are in
 > [dependencies.md](dependencies.md).
 
-_Last updated: 2026-11-01_
+_Last updated: 2026-11-04_
 
 ## 1. What the system does
 
@@ -15,12 +15,12 @@ user signs in (email and password, GitHub, or Google) and only ever sees their o
 
 ## 2. Requirements and scale assumptions
 
-| Dimension      | Now                                                           | Planned                    |
-| -------------- | ------------------------------------------------------------- | -------------------------- |
-| Users          | multi-user with auth ([ADR-0011](adr/0011-authentication.md)) | ~12, possibly ~1,000s      |
-| Rows per user  | hundreds                                                      | low thousands              |
-| Read/write mix | read-heavy (list view), occasional writes                     | same                       |
-| Availability   | local dev only                                                | single region, best effort |
+| Dimension      | Now                                                                  | Planned                      |
+| -------------- | -------------------------------------------------------------------- | ---------------------------- |
+| Users          | multi-user with auth ([ADR-0011](adr/0011-authentication.md))        | ~12, possibly ~1,000s        |
+| Rows per user  | hundreds                                                             | low thousands                |
+| Read/write mix | read-heavy (list view), occasional writes                            | same                         |
+| Availability   | single VPS, ~99.5–99.9% ([ADR-0012](adr/0012-hosting-single-vps.md)) | same until users demand more |
 
 **Back-of-envelope estimate at the high end.** 5,000 users × 2,000 applications = 10M rows ×
 ~300 bytes ≈ 3 GB including indexes. Peak traffic is perhaps 5,000 users × 50 requests/day ≈
@@ -193,11 +193,44 @@ sequenceDiagram
 
 ## 7. Environments and delivery
 
-| Environment | Status            | Notes                                                                                                                                                                                                                                                          |
-| ----------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Local       | ✅ running        | `docker compose` Postgres (databases `app` and `app_test`), `pnpm dev`                                                                                                                                                                                         |
-| CI          | ✅ GitHub Actions | `check` job (required): lint, format, typecheck, dependency register, migration drift, tests against Postgres. Also CodeQL and dependency review on every PR, and weekly Dependabot update PRs ([ADR-0010](adr/0010-public-repo-and-supply-chain-scanning.md)) |
-| Production  | ⏳ not yet        | Hosting decision pending (it will be its own ADR)                                                                                                                                                                                                              |
+### Production deployment
+
+```mermaid
+flowchart LR
+  user([Browser]) -->|DNS lookup| cf[Cloudflare DNS<br/>A/AAAA, www, CAA]
+  user -->|HTTPS :443| caddy
+
+  subgraph hetzner["Hetzner Cloud, Ashburn (ash): one VPS, firewall 22/80/443"]
+    subgraph compose["Docker Compose (compose.prod.yml)"]
+      caddy[web: Caddy<br/>TLS, SPA, headers]
+      api[api: Node 26<br/>esbuild bundle]
+      migrate[migrate<br/>one-off, runs first]
+      db[(db: Postgres 17<br/>no public port)]
+    end
+    vol[[Volume /srv/data<br/>postgres + certs]]
+  end
+
+  caddy -->|/api/*| api
+  api --> db
+  migrate --> db
+  db --- vol
+  caddy --- vol
+  le[Let's Encrypt] -.certificates.-> caddy
+```
+
+- **Edge:** Caddy terminates TLS with automatic Let's Encrypt certificates, redirects HTTP and
+  `www` to `https://<domain>`, serves the SPA (hashed assets cached for a year, `index.html`
+  never cached), and sets HSTS, CSP, frame-deny and related headers.
+- **Startup order:** `db` healthy → `migrate` exits 0 → `api` healthy → `web` starts. A failed
+  migration means the new API never starts.
+- **Disposable server:** IPs and the data volume are separate OpenTofu resources, so the server
+  can be replaced at any time ([infra/README.md](../infra/README.md)).
+
+| Environment | Status                      | Notes                                                                                                                                                                                                                                                                             |
+| ----------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local       | ✅ running                  | `docker compose` Postgres (databases `app` and `app_test`), `pnpm dev`. The production stack also runs locally: `docker compose -f compose.prod.yml` with `DOMAIN=localhost`.                                                                                                     |
+| CI          | ✅ GitHub Actions           | `check` (required): lint, format, typecheck, dependency register, migration drift, tests. `images`: both production images build. `infra`: `tofu fmt` + `validate`. Also CodeQL, dependency review and Dependabot ([ADR-0010](adr/0010-public-repo-and-supply-chain-scanning.md)) |
+| Production  | 🏗️ defined, not yet applied | Hetzner + Cloudflare via OpenTofu ([ADR-0012](adr/0012-hosting-single-vps.md)). Deploy pipeline (build → GHCR → SSH deploy → health check) is next.                                                                                                                               |
 
 ## 8. Known limits and what changes at scale
 
@@ -205,5 +238,6 @@ sequenceDiagram
 | ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | Need for history and analytics  | Append-only `application_events` table, so `updated_at` stops being the only trace                                |
 | Lists in the thousands per user | Cursor pagination, plus server-side filter and sort                                                               |
+| One server's CPU or RAM         | Bigger `server_type` (vertical scaling, minutes of downtime), then Postgres on its own server                     |
 | Read load beyond one Postgres   | Connection pooling (PgBouncer), then a read replica. Caching only if measurements show it's needed                |
 | Multiple API instances          | Already stateless (sessions live in Postgres), so add a load balancer. Move the rate limiter to Postgres or Redis |

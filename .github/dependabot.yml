@@ -42,3 +42,23 @@ updates:
       # Postgres major upgrades need a data migration; do them deliberately.
       - dependency-name: postgres
         update-types: [version-update:semver-major]
+
+  - package-ecosystem: docker # base images in the Dockerfiles
+    directories: [/apps/api, /apps/web]
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: chore
+    ignore:
+      # Node major upgrades are deliberate (they also change .node-version).
+      - dependency-name: node
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: terraform # OpenTofu providers in infra/
+    directory: /infra
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: chore
