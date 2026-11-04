@@ -11,8 +11,10 @@ cloud firewall, and Cloudflare DNS. Why it looks like this:
 2. An SSH key: `ssh-keygen -t ed25519` (use a passphrase). Its `.pub` goes on the server.
 3. `cp terraform.tfvars.example terraform.tfvars` and fill it in:
    - `do_token`: DigitalOcean → API → Tokens → **Generate New Token**, with an expiry and
-     **custom scopes**: full access to `droplet`, `block_storage`, `reserved_ip`, `firewall`,
-     `ssh_key`, `project`, and read access to `regions`, `sizes`, `image`, `actions`.
+     **custom scopes**: full access (create/read/update/delete) to `droplet`, `block_storage`,
+     `block_storage_action`, `reserved_ip`, `firewall`, `ssh_key`, `project`, `tag`, and read
+     access to `regions`, `sizes`, `image`, `actions`. If `tofu apply` fails with a 403 naming a
+     missing scope, edit the token to add it and apply again.
    - `cloudflare_api_token`: Cloudflare → My Profile → API Tokens → "Edit zone DNS", limited to
      this zone
    - `cloudflare_zone_id`: Cloudflare → the domain → Overview, right-hand column
