@@ -1,14 +1,15 @@
 output "ipv4" {
-  value = hcloud_primary_ip.ipv4.ip_address
+  description = "Reserved IP (stable across droplet replacement)."
+  value       = digitalocean_reserved_ip.app.ip_address
 }
 
 output "ipv6" {
-  value = hcloud_primary_ip.ipv6.ip_address
+  value = digitalocean_droplet.app.ipv6_address
 }
 
 output "ssh" {
   description = "Log in as the admin user."
-  value       = "ssh admin@${hcloud_primary_ip.ipv4.ip_address}"
+  value       = "ssh admin@${digitalocean_reserved_ip.app.ip_address}"
 }
 
 output "url" {

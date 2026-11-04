@@ -2,9 +2,9 @@ terraform {
   required_version = ">= 1.8"
 
   required_providers {
-    hcloud = {
-      source  = "hetznercloud/hcloud"
-      version = "~> 1.70"
+    digitalocean = {
+      source  = "digitalocean/digitalocean"
+      version = "~> 2.0"
     }
     cloudflare = {
       source  = "cloudflare/cloudflare"
@@ -13,11 +13,11 @@ terraform {
   }
 
   # State is local (infra/terraform.tfstate, git-ignored) for now. It holds secrets, so treat it
-  # like one. Moving it to an S3-compatible backend (Hetzner Object Storage) is on the roadmap.
+  # like one. Moving it to Cloudflare R2 (S3-compatible) comes with the backups work.
 }
 
-provider "hcloud" {
-  token = var.hcloud_token
+provider "digitalocean" {
+  token = var.do_token
 }
 
 provider "cloudflare" {

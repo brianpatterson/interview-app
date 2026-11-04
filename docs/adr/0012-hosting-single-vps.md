@@ -1,6 +1,6 @@
 # 0012. Host on a single Hetzner VPS, provisioned with OpenTofu
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR-0013](0013-digitalocean-instead-of-hetzner.md) (provider only; the single-VPS design stands)
 - **Date:** 2026-11-04
 
 ## Context
