@@ -11,19 +11,19 @@ Each phase ends in something running. Bigger decisions get an ADR when they're m
 Better Auth with email/password, GitHub and Google, and per-user data isolation.
 [ADR-0011](adr/0011-authentication.md).
 
-## Phase 2: Production on a single VPS
+## Phase 2: Production on a single VPS 🏗️
 
 Decided: Hetzner Cloud, a purchased domain, OpenTofu with cloud-init. The rest of the details go
 in a hosting ADR when built.
 
-1. **Containers**: multi-stage Dockerfiles. The API runs as a Node image with a non-root user.
+1. ✅ **Containers**: multi-stage Dockerfiles. The API runs as a Node image with a non-root user.
    The web app is built to static files served by Caddy. A `compose.prod.yml` wires Caddy, the
    API and Postgres together.
-2. **Infrastructure as code** (`infra/`, OpenTofu): Hetzner server, firewall (only 22/80/443
+2. ✅ **Infrastructure as code** (defined, not yet applied; state is local for now) (`infra/`, OpenTofu): Hetzner server, firewall (only 22/80/443
    open), SSH key, a floating IP, and DNS records. cloud-init installs Docker, creates a deploy
    user, disables password SSH, and turns on unattended security upgrades. State lives in a
    remote backend (Hetzner Object Storage, S3-compatible).
-3. **Edge**: Caddy terminates TLS with automatic Let's Encrypt certificates, serves the SPA,
+3. ✅ **Edge**: Caddy terminates TLS with automatic Let's Encrypt certificates, serves the SPA,
    reverse-proxies `/api/*`, and sets security headers (HSTS, CSP).
 4. **Delivery pipeline**: on merge to `main`, GitHub Actions builds the images, tags them with the
    git SHA, and pushes them to GitHub Container Registry. A deploy job then runs migrations as a

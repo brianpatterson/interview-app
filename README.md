@@ -35,3 +35,8 @@ pnpm dev               # start web + api
 - `pnpm db:generate --name <change>`: generate a SQL migration after editing `apps/api/src/db/schema.ts`
 - `pnpm db:migrate`: apply migrations
 - `pnpm db:down`: stop Postgres (data is kept in a Docker volume)
+
+## Production
+
+`compose.prod.yml` runs Caddy + API + Postgres. Try it locally with `DOMAIN=localhost` (see
+`.env.prod.example`). The servers are defined in [infra/](infra/README.md).
