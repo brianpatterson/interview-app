@@ -200,7 +200,7 @@ flowchart LR
   user([Browser]) -->|DNS lookup| cf[Cloudflare DNS<br/>A/AAAA, www, CAA]
   user -->|HTTPS :443| caddy
 
-  subgraph hetzner["Hetzner Cloud, Ashburn (ash): one VPS, firewall 22/80/443"]
+  subgraph do["DigitalOcean nyc3: one droplet (1 vCPU, 1 GB), cloud firewall 22/80/443"]
     subgraph compose["Docker Compose (compose.prod.yml)"]
       caddy[web: Caddy<br/>TLS, SPA, headers]
       api[api: Node 26<br/>esbuild bundle]
@@ -230,7 +230,7 @@ flowchart LR
 | ----------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Local       | ✅ running                  | `docker compose` Postgres (databases `app` and `app_test`), `pnpm dev`. The production stack also runs locally: `docker compose -f compose.prod.yml` with `DOMAIN=localhost`.                                                                                                     |
 | CI          | ✅ GitHub Actions           | `check` (required): lint, format, typecheck, dependency register, migration drift, tests. `images`: both production images build. `infra`: `tofu fmt` + `validate`. Also CodeQL, dependency review and Dependabot ([ADR-0010](adr/0010-public-repo-and-supply-chain-scanning.md)) |
-| Production  | 🏗️ defined, not yet applied | Hetzner + Cloudflare via OpenTofu ([ADR-0012](adr/0012-hosting-single-vps.md)). Deploy pipeline (build → GHCR → SSH deploy → health check) is next.                                                                                                                               |
+| Production  | 🏗️ defined, not yet applied | DigitalOcean + Cloudflare via OpenTofu ([ADR-0012](adr/0012-hosting-single-vps.md), [ADR-0013](adr/0013-digitalocean-instead-of-hetzner.md)). Deploy pipeline (build → GHCR → SSH deploy → health check) is next.                                                                 |
 
 ## 8. Known limits and what changes at scale
 

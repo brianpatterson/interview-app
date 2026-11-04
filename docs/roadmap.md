@@ -13,16 +13,16 @@ Better Auth with email/password, GitHub and Google, and per-user data isolation.
 
 ## Phase 2: Production on a single VPS 🏗️
 
-Decided: Hetzner Cloud, a purchased domain, OpenTofu with cloud-init. The rest of the details go
+Decided: DigitalOcean (ADR-0013, superseding Hetzner in ADR-0012), a domain on Cloudflare DNS, OpenTofu with cloud-init, Cloudflare R2 for off-site storage. The rest of the details go
 in a hosting ADR when built.
 
 1. ✅ **Containers**: multi-stage Dockerfiles. The API runs as a Node image with a non-root user.
    The web app is built to static files served by Caddy. A `compose.prod.yml` wires Caddy, the
    API and Postgres together.
-2. ✅ **Infrastructure as code** (defined, not yet applied; state is local for now) (`infra/`, OpenTofu): Hetzner server, firewall (only 22/80/443
-   open), SSH key, a floating IP, and DNS records. cloud-init installs Docker, creates a deploy
+2. ✅ **Infrastructure as code** (defined, not yet applied; state is local for now) (`infra/`, OpenTofu): DigitalOcean droplet, firewall (only 22/80/443
+   open), SSH key, a reserved IP, a data volume, and DNS records. cloud-init installs Docker, creates a deploy
    user, disables password SSH, and turns on unattended security upgrades. State lives in a
-   remote backend (Hetzner Object Storage, S3-compatible).
+   remote backend (Cloudflare R2, S3-compatible).
 3. ✅ **Edge**: Caddy terminates TLS with automatic Let's Encrypt certificates, serves the SPA,
    reverse-proxies `/api/*`, and sets security headers (HSTS, CSP).
 4. **Delivery pipeline**: on merge to `main`, GitHub Actions builds the images, tags them with the
@@ -36,7 +36,7 @@ in a hosting ADR when built.
 7. **Observability (minimum)**: structured logs, an external uptime check, and error tracking
    (Sentry free tier, or self-hosted GlitchTip).
 
-Rough cost: €5–8/month for the server, €1–5 for object storage, ~$10/year for the domain.
+Cost: $6/month droplet + ~$1 volume + $0 R2 (free tier) ≈ **$7/month**, plus the domain.
 
 ## Phase 3: The software factory
 

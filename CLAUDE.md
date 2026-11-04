@@ -9,7 +9,7 @@ every change, not an afterthought.**
 - `apps/web`: React 19 + Vite SPA. Uses TanStack Query for server state and calls `/api/*` (Vite proxies to the API).
 - `apps/api`: Fastify 5 + Drizzle ORM + Postgres. `src/app.ts` builds the app, `src/routes/` holds routes, `src/db/schema.ts` is the schema source of truth, `src/auth.ts` configures Better Auth, `src/env.ts` validates environment variables.
 - `packages/shared`: Zod schemas and types, the API contract. Consumed as TS source.
-- `infra/`: OpenTofu for production (Hetzner server, volume, IPs, firewall, Cloudflare DNS) and cloud-init. See `infra/README.md`.
+- `infra/`: OpenTofu for production (DigitalOcean droplet, volume, reserved IP, firewall, Cloudflare DNS) and cloud-init. See `infra/README.md`.
 - `compose.prod.yml`, `apps/*/Dockerfile`, `apps/web/Caddyfile`: the production runtime.
 - `docs/`: `architecture.md` (current state), `adr/` (decisions), `dependencies.md` (dependency register), `roadmap.md` (where this is going).
 

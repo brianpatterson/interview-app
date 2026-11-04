@@ -21,4 +21,5 @@ you'd want to explain in an interview. Copy [template.md](template.md).
 | 0009 | [Defer authentication; single-tenant for now](0009-defer-authentication.md)                                      | Superseded by 0011 |
 | 0010 | [Public repository with automated supply-chain and code scanning](0010-public-repo-and-supply-chain-scanning.md) | Accepted           |
 | 0011 | [Self-hosted authentication with Better Auth](0011-authentication.md)                                            | Accepted           |
-| 0012 | [Host on a single Hetzner VPS, provisioned with OpenTofu](0012-hosting-single-vps.md)                            | Accepted           |
+| 0012 | [Host on a single Hetzner VPS, provisioned with OpenTofu](0012-hosting-single-vps.md)                            | Superseded by 0013 |
+| 0013 | [Host on DigitalOcean instead of Hetzner; R2 for off-site storage](0013-digitalocean-instead-of-hetzner.md)      | Accepted           |

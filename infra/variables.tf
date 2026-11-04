@@ -1,5 +1,5 @@
-variable "hcloud_token" {
-  description = "Hetzner Cloud API token (Read & Write) for the interview-app project."
+variable "do_token" {
+  description = "DigitalOcean personal access token (custom scopes, see README) for this project."
   type        = string
   sensitive   = true
 }
@@ -20,16 +20,16 @@ variable "domain" {
   type        = string
 }
 
-variable "location" {
-  description = "Hetzner location. ash = Ashburn, VA; hil = Hillsboro, OR."
+variable "region" {
+  description = "DigitalOcean region. nyc1/nyc3 = New York, sfo3 = San Francisco, atl1 = Atlanta."
   type        = string
-  default     = "ash"
+  default     = "nyc3"
 }
 
-variable "server_type" {
-  description = "Hetzner server type. List what a location offers with `hcloud server-type list`."
+variable "droplet_size" {
+  description = "Droplet size slug. List them with `doctl compute size list`."
   type        = string
-  default     = "cpx11"
+  default     = "s-1vcpu-1gb" # $6/mo: 1 vCPU, 1 GB RAM, 25 GB SSD
 }
 
 variable "data_volume_size" {
