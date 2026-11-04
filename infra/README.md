@@ -20,7 +20,7 @@ cloud firewall, and Cloudflare DNS. Why it looks like this:
    - `cloudflare_zone_id`: Cloudflare → the domain → Overview, right-hand column
    - `domain`
 
-`terraform.tfvars` and `terraform.tfstate` hold secrets and are git-ignored. Back up the state
+`terraform.tfvars`, `terraform.tfstate` and saved plans (`tfplan`) hold secrets and are git-ignored. Back up the state
 file (for example in your password manager) until it moves to R2.
 
 ## Create or update the infrastructure
@@ -28,8 +28,8 @@ file (for example in your password manager) until it moves to R2.
 ```bash
 cd infra
 tofu init
-tofu plan    # read it: what will be created, changed, or destroyed?
-tofu apply
+tofu plan -out=tfplan    # read it: what will be created, changed, or destroyed?
+tofu apply tfplan        # applies exactly what you reviewed, nothing else
 ```
 
 The outputs show the IPs and the SSH command. cloud-init takes 2–4 minutes after the droplet is
