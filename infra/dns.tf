@@ -4,16 +4,18 @@ resource "cloudflare_dns_record" "apex_a" {
   zone_id = var.cloudflare_zone_id
   name    = var.domain
   type    = "A"
-  content = hcloud_primary_ip.ipv4.ip_address
+  content = digitalocean_reserved_ip.app.ip_address
   ttl     = 300
   proxied = false
 }
 
+# The droplet's own IPv6 (DigitalOcean's reserved IPv6 isn't available in every region). It
+# changes if the droplet is replaced; the next `tofu apply` updates the record.
 resource "cloudflare_dns_record" "apex_aaaa" {
   zone_id = var.cloudflare_zone_id
   name    = var.domain
   type    = "AAAA"
-  content = hcloud_primary_ip.ipv6.ip_address
+  content = digitalocean_droplet.app.ipv6_address
   ttl     = 300
   proxied = false
 }

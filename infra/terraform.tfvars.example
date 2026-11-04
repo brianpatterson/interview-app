@@ -1,10 +1,10 @@
 # Copy to terraform.tfvars (git-ignored) and fill in. Never commit the real file.
-hcloud_token         = ""
+do_token             = ""
 cloudflare_api_token = ""
 cloudflare_zone_id   = ""
 domain               = "example.com"
 
 # Optional overrides:
-# location                  = "ash"
-# server_type               = "cpx11"
+# region                    = "nyc3"
+# droplet_size              = "s-1vcpu-1gb"
 # admin_ssh_public_key_path = "~/.ssh/id_ed25519.pub"
