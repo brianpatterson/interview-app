@@ -3,3 +3,10 @@ dist
 .env
 *.log
 .DS_Store
+prod-data
+.env.prod
+# OpenTofu
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.*
+infra/terraform.tfvars
