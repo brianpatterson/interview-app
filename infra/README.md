@@ -1,22 +1,25 @@
 # Infrastructure
 
-OpenTofu configuration for production: one Hetzner server, a data volume, static IPs, a
-firewall, and Cloudflare DNS. Why it looks like this:
-[ADR-0012](../docs/adr/0012-hosting-single-vps.md).
+OpenTofu configuration for production: one DigitalOcean droplet, a data volume, a reserved IP, a
+cloud firewall, and Cloudflare DNS. Why it looks like this:
+[ADR-0012](../docs/adr/0012-hosting-single-vps.md) (single VPS) and
+[ADR-0013](../docs/adr/0013-digitalocean-instead-of-hetzner.md) (DigitalOcean).
 
 ## Prerequisites
 
-1. `brew install opentofu`
+1. `brew install opentofu doctl`
 2. An SSH key: `ssh-keygen -t ed25519` (use a passphrase). Its `.pub` goes on the server.
 3. `cp terraform.tfvars.example terraform.tfvars` and fill it in:
-   - `hcloud_token`: Hetzner Console → project → Security → API tokens (Read & Write)
+   - `do_token`: DigitalOcean → API → Tokens → **Generate New Token**, with an expiry and
+     **custom scopes**: full access to `droplet`, `block_storage`, `reserved_ip`, `firewall`,
+     `ssh_key`, `project`, and read access to `regions`, `sizes`, `image`, `actions`.
    - `cloudflare_api_token`: Cloudflare → My Profile → API Tokens → "Edit zone DNS", limited to
      this zone
    - `cloudflare_zone_id`: Cloudflare → the domain → Overview, right-hand column
    - `domain`
 
 `terraform.tfvars` and `terraform.tfstate` hold secrets and are git-ignored. Back up the state
-file (for example in your password manager) until it moves to a remote backend.
+file (for example in your password manager) until it moves to R2.
 
 ## Create or update the infrastructure
 
@@ -27,25 +30,26 @@ tofu plan    # read it: what will be created, changed, or destroyed?
 tofu apply
 ```
 
-The outputs show the IPs and the SSH command. cloud-init takes 2–4 minutes after the server is
+The outputs show the IPs and the SSH command. cloud-init takes 2–4 minutes after the droplet is
 created. To check:
 
 ```bash
-ssh admin@<ipv4> 'cloud-init status --wait && df -h /srv/data && docker version --format {{.Server.Version}}'
+ssh admin@<ipv4> 'cloud-init status --wait && df -h /srv/data && free -h && docker version --format {{.Server.Version}}'
 ```
 
-## Things that replace the server
+## Things that replace the droplet
 
-Changing `cloud-init.yaml.tftpl`, `server_type` or the image **replaces** the server. The IPs and
-the `/srv/data` volume survive and reattach. `tofu plan` says "must be replaced" when this will
-happen. Afterwards, redeploy the app.
+Changing `cloud-init.yaml.tftpl`, `droplet_size`, `region` or the image **replaces** the droplet.
+The reserved IP and the `/srv/data` volume survive and reattach. The AAAA record moves to the new
+droplet's IPv6. `tofu plan` says "must be replaced" when this will happen. Afterwards, redeploy
+the app.
 
 ## Runbook
 
-| Situation                | Do this                                                                                                       |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| Server is unreachable    | Hetzner Console → server → Console (out-of-band) and check status; or `tofu apply -replace=hcloud_server.app` |
-| Disk full on `/srv/data` | Raise `data_volume_size`, `tofu apply`, then `sudo resize2fs <device>` on the server                          |
-| Need more CPU or RAM     | Change `server_type`, `tofu apply` (replaces the server; a few minutes of downtime)                           |
-| Rotate the Hetzner token | Create a new token, update `terraform.tfvars`, delete the old token                                           |
-| Tear everything down     | `tofu destroy`. The volume has delete protection, so remove it in the Hetzner Console on purpose              |
+| Situation                     | Do this                                                                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Droplet is unreachable        | DigitalOcean console → droplet → **Recovery Console** (out-of-band), check status; or `tofu apply -replace=digitalocean_droplet.app` |
+| Out of memory                 | Check `free -h` and `docker stats`; then `droplet_size = "s-1vcpu-2gb"` and `tofu apply` (replaces the droplet)                      |
+| Disk full on `/srv/data`      | Raise `data_volume_size`, `tofu apply`, then `sudo resize2fs /dev/disk/by-id/scsi-0DO_Volume_interview-app-data`                     |
+| Rotate the DigitalOcean token | Generate a new token, update `terraform.tfvars`, revoke the old one                                                                  |
+| Tear everything down          | `tofu destroy` refuses because the volume has `prevent_destroy`. Remove that line deliberately if you really mean it                 |
