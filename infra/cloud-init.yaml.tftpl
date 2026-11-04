@@ -1,0 +1,68 @@
+#cloud-config
+# First-boot setup for the app server. Rendered by OpenTofu (main.tf). Changing this file
+# replaces the server; data on the attached volume survives.
+
+package_update: true
+package_upgrade: true
+packages:
+  - docker.io
+  - docker-compose-v2
+  - unattended-upgrades
+  - fail2ban
+
+users:
+  # Humans: SSH key login, passwordless sudo.
+  - name: admin
+    groups: [sudo, docker]
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ${admin_ssh_public_key}
+%{ if deploy_ssh_public_key != "" ~}
+  # GitHub Actions: can run docker (and only that, by convention). No sudo.
+  - name: deploy
+    groups: [docker]
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ${deploy_ssh_public_key}
+%{ endif ~}
+
+disable_root: true
+ssh_pwauth: false
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/99-hardening.conf
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      AllowUsers admin deploy
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+  # Reboot for kernel updates at a quiet hour (US night).
+  - path: /etc/apt/apt.conf.d/52unattended-reboot
+    content: |
+      Unattended-Upgrade::Automatic-Reboot "true";
+      Unattended-Upgrade::Automatic-Reboot-Time "09:30";
+  - path: /etc/docker/daemon.json
+    content: |
+      { "log-driver": "local", "log-opts": { "max-size": "20m", "max-file": "5" } }
+
+runcmd:
+  # Attach the data volume at /srv/data. The attachment can land a few seconds after boot.
+  - for i in $(seq 1 60); do [ -e ${volume_device} ] && break; sleep 2; done
+  - mkdir -p /srv/data
+  - echo '${volume_device} /srv/data ext4 discard,nofail,defaults 0 0' >> /etc/fstab
+  - mount /srv/data
+  - mkdir -p /srv/data/postgres /srv/data/caddy
+  # 2 GB swap: headroom for a small instance during upgrades and image pulls.
+  - fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+  - echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  # App directory: compose.prod.yml and .env live here.
+  - mkdir -p /opt/interview-app && chown admin:docker /opt/interview-app && chmod 770 /opt/interview-app
+  - systemctl enable --now docker fail2ban
+  - systemctl restart ssh
