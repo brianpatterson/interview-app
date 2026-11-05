@@ -19,18 +19,17 @@ in a hosting ADR when built.
 1. ✅ **Containers**: multi-stage Dockerfiles. The API runs as a Node image with a non-root user.
    The web app is built to static files served by Caddy. A `compose.prod.yml` wires Caddy, the
    API and Postgres together.
-2. ✅ **Infrastructure as code** (defined, not yet applied; state is local for now) (`infra/`, OpenTofu): DigitalOcean droplet, firewall (only 22/80/443
+2. ✅ **Infrastructure as code** (applied 2026-11-05; state is still local until it moves to R2) (`infra/`, OpenTofu): DigitalOcean droplet, firewall (only 22/80/443
    open), SSH key, a reserved IP, a data volume, and DNS records. cloud-init installs Docker, creates a deploy
-   user, disables password SSH, and turns on unattended security upgrades. State lives in a
-   remote backend (Cloudflare R2, S3-compatible).
+   user, disables password SSH, and turns on unattended security upgrades.
 3. ✅ **Edge**: Caddy terminates TLS with automatic Let's Encrypt certificates, serves the SPA,
    reverse-proxies `/api/*`, and sets security headers (HSTS, CSP).
-4. ✅ **Delivery pipeline** ([ADR-0014](adr/0014-push-based-deploys.md)): on merge to `main`, GitHub Actions builds the images, tags them with the
+4. ✅ **Delivery pipeline** (live: first deploy to https://roundtableapp.us on 2026-11-05) ([ADR-0014](adr/0014-push-based-deploys.md)): on merge to `main`, GitHub Actions builds the images, tags them with the
    git SHA, and pushes them to GitHub Container Registry. A deploy job then runs migrations as a
    one-off container, rolls the API, health-checks `/api/health`, and rolls back if that fails.
    Production is a protected GitHub Environment holding the secrets.
 5. ✅ **Data safety** ([ADR-0015](adr/0015-backups.md)): nightly `pg_dump` to object storage with retention, plus a **tested restore**
-   (a backup you haven't restored isn't a backup).
+   (a backup you haven't restored isn't a backup). Next: OpenTofu state moves to the same R2 account.
 6. **Email**: a real provider (Resend) on the domain, with SPF/DKIM/DMARC records, then turn on
    required email verification.
 7. **Observability (minimum)**: structured logs, an external uptime check, and error tracking
