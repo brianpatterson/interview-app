@@ -12,3 +12,7 @@ infra/*.tfstate.*
 infra/terraform.tfvars
 infra/*.tfplan
 infra/tfplan
+# Backup encryption keys and decrypted dumps (infra/README.md → Backups)
+*.agekey
+*.dump
+*.dump.age

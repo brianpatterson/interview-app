@@ -101,11 +101,14 @@ failed run emails you.
    `tofu apply` as usual. Expect 4 to add.
 2. R2 → **Manage API tokens** → **Create Account API token**: permission **Object Read & Write**,
    applied to the `<domain>-backups` bucket only. Keep the page open for step 4.
-3. The encryption key. Save `backups.agekey` in your password manager, then delete the file:
+3. The encryption key. `backups.agekey` holds a key pair: the public half encrypts backups, the
+   private half is the **only** way to decrypt them. GitHub secrets can't be read back, so your
+   own copy is what you'd restore with if GitHub were unavailable.
 
    ```bash
    brew install age
    age-keygen -o backups.agekey
+   cat backups.agekey   # copy all three lines into a password-manager secure note
    ```
 
 4. The `backups` GitHub environment (deploys from `main` only), from `infra/`. `gh secret set`
@@ -118,6 +121,7 @@ failed run emails you.
    gh api -X POST repos/brianpatterson/interview-app/environments/backups/deployment-branch-policies \
      -f name=main -f type=branch
    gh secret set AGE_IDENTITY --env backups < backups.agekey
+   rm backups.agekey   # only after it's in your password manager
    gh secret set R2_ACCESS_KEY_ID --env backups
    gh secret set R2_SECRET_ACCESS_KEY --env backups
    tofu output -raw deploy_private_key | gh secret set DEPLOY_SSH_KEY --env backups
@@ -154,7 +158,7 @@ docker compose -f compose.prod.yml --env-file .env start api web
 shred -u /tmp/app.dump
 ```
 
-Then delete `app.dump` and `app.dump.age` locally. If the restored data is from an older schema,
+Then delete `app.dump`, `app.dump.age` and any `backups.agekey` you saved from the password manager. If the restored data is from an older schema,
 redeploy the release that matches it, or let the next deploy migrate it forward.
 
 ## Things that replace the droplet
