@@ -188,8 +188,9 @@ sequenceDiagram
 - **Brute force:** Better Auth's rate limiter (in-memory, production only) throttles auth
   endpoints. With more than one API instance it would need shared storage
   ([ADR-0011](adr/0011-authentication.md)).
-- **Email:** for now, emails (password reset links) are written to the API log. A real provider
-  ships with the production deploy.
+- **Email:** for now, emails (password reset links) are written to the API log, **including in
+  production**, so a user who forgets their password needs an operator. A real provider (Resend)
+  is the next email step ([roadmap](roadmap.md)).
 
 ## 7. Environments and delivery
 
@@ -197,7 +198,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-  user([Browser]) -->|DNS lookup| cf[Cloudflare DNS<br/>A/AAAA, www, CAA]
+  user([Browser]) -->|DNS lookup| cf[Cloudflare DNS<br/>A/AAAA, www, CAA<br/>DNS only, not proxied]
   user -->|HTTPS :443| caddy
 
   subgraph do["DigitalOcean nyc3: one droplet (1 vCPU, 1 GB), cloud firewall 22/80/443"]
@@ -223,6 +224,10 @@ flowchart LR
   never cached), and sets HSTS, CSP, frame-deny and related headers.
 - **Startup order:** `db` healthy → `migrate` exits 0 → `api` healthy → `web` starts. A failed
   migration means the new API never starts.
+- **DNS:** records point straight at the reserved IP (Cloudflare's proxy is off). The CAA record
+  allows Let's Encrypt; Cloudflare automatically adds its own CAs to that set.
+- **Not yet:** off-site backups, outbound email, and monitoring. The data volume is the only copy
+  of the database until backups land ([roadmap](roadmap.md), phase 2).
 - **Disposable server:** IPs and the data volume are separate OpenTofu resources, so the server
   can be replaced at any time ([infra/README.md](../infra/README.md)).
 
@@ -257,7 +262,7 @@ Rollback restores code only; migrations must stay backward-compatible with the p
 | ----------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Local       | ✅ running                          | `docker compose` Postgres (databases `app` and `app_test`), `pnpm dev`. The production stack also runs locally: `docker compose -f compose.prod.yml` with `DOMAIN=localhost`.                                                                                                     |
 | CI          | ✅ GitHub Actions                   | `check` (required): lint, format, typecheck, dependency register, migration drift, tests. `images`: both production images build. `infra`: `tofu fmt` + `validate`. Also CodeQL, dependency review and Dependabot ([ADR-0010](adr/0010-public-repo-and-supply-chain-scanning.md)) |
-| Production  | ✅ provisioned, deploys from `main` | DigitalOcean + Cloudflare via OpenTofu ([ADR-0012](adr/0012-hosting-single-vps.md), [ADR-0013](adr/0013-digitalocean-instead-of-hetzner.md)); every green CI run on `main` deploys with health-checked rollback ([ADR-0014](adr/0014-push-based-deploys.md))                      |
+| Production  | ✅ live at https://roundtableapp.us | DigitalOcean + Cloudflare via OpenTofu ([ADR-0012](adr/0012-hosting-single-vps.md), [ADR-0013](adr/0013-digitalocean-instead-of-hetzner.md)); every green CI run on `main` deploys with health-checked rollback ([ADR-0014](adr/0014-push-based-deploys.md))                      |
 
 ## 8. Known limits and what changes at scale
 
