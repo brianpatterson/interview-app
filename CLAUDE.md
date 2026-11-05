@@ -58,4 +58,5 @@ pnpm check          # lint + format check + typecheck + dependency register + te
 - TypeScript is pinned to `~6.0` until typescript-eslint supports TS 7.
 - GitHub Actions: pin third-party actions (anything outside `actions/*` and `github/*`) to a full
   commit SHA with the version in a comment. Dependabot keeps the pins current. Give every workflow
-  an explicit `permissions:` block (default `contents: read`).
+  an explicit `permissions:` block (default `contents: read`). Every job sets `timeout-minutes` (GitHub's
+  default is 6 hours, so a hung step blocks a PR for that long).
