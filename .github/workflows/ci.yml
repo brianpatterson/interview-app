@@ -16,6 +16,7 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:17
@@ -64,6 +65,7 @@ jobs:
   # The production images must build. They're not pushed here; the deploy pipeline does that.
   images:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         app: [api, web]
@@ -80,12 +82,19 @@ jobs:
 
   infra:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: infra
     steps:
       - uses: actions/checkout@v7
       - uses: opentofu/setup-opentofu@9d84900f3238fab8cd84ce47d658d25dd008be2f # v1.0.8
+        with:
+          # The default wrapper captures tofu's output for later steps, but it breaks piped stdin, so
+          # `tofu console` in test-cloud-init.sh hung until the job timed out.
+          tofu_wrapper: false
       - run: tofu fmt -check -recursive
       - run: tofu init -backend=false
       - run: tofu validate
+      - name: cloud-init creates the expected users
+        run: ./test-cloud-init.sh

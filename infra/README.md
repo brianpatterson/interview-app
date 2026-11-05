@@ -20,7 +20,7 @@ cloud firewall, and Cloudflare DNS. Why it looks like this:
    - `cloudflare_zone_id`: Cloudflare → the domain → Overview, right-hand column
    - `domain`
 
-`terraform.tfvars` and `terraform.tfstate` hold secrets and are git-ignored. Back up the state
+`terraform.tfvars`, `terraform.tfstate` and saved plans (`tfplan`) hold secrets and are git-ignored. Back up the state
 file (for example in your password manager) until it moves to R2.
 
 ## Create or update the infrastructure
@@ -28,15 +28,15 @@ file (for example in your password manager) until it moves to R2.
 ```bash
 cd infra
 tofu init
-tofu plan    # read it: what will be created, changed, or destroyed?
-tofu apply
+tofu plan -out=tfplan    # read it: what will be created, changed, or destroyed?
+tofu apply tfplan        # applies exactly what you reviewed, nothing else
 ```
 
 The outputs show the IPs and the SSH command. cloud-init takes 2–4 minutes after the droplet is
 created. To check:
 
 ```bash
-ssh admin@<ipv4> 'cloud-init status --wait && df -h /srv/data && free -h && docker version --format {{.Server.Version}}'
+ssh ops@<ipv4> 'cloud-init status --long && findmnt /srv/data && free -h && docker version --format {{.Server.Version}} && id'
 ```
 
 ## Things that replace the droplet
@@ -55,3 +55,5 @@ the app.
 | Disk full on `/srv/data`      | Raise `data_volume_size`, `tofu apply`, then `sudo resize2fs /dev/disk/by-id/scsi-0DO_Volume_interview-app-data`                     |
 | Rotate the DigitalOcean token | Generate a new token, update `terraform.tfvars`, revoke the old one                                                                  |
 | Tear everything down          | `tofu destroy` refuses because the volume has `prevent_destroy`. Remove that line deliberately if you really mean it                 |
+
+Past incidents and what they taught us are in [docs/incidents/](../docs/incidents/).

@@ -8,8 +8,8 @@ output "ipv6" {
 }
 
 output "ssh" {
-  description = "Log in as the admin user."
-  value       = "ssh admin@${digitalocean_reserved_ip.app.ip_address}"
+  description = "Log in as the ops user (sudo)."
+  value       = "ssh ops@${digitalocean_reserved_ip.app.ip_address}"
 }
 
 output "url" {
