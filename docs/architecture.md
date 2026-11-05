@@ -217,6 +217,8 @@ flowchart LR
   db --- vol
   caddy --- vol
   le[Let's Encrypt] -.certificates.-> caddy
+  gha[GitHub Actions<br/>nightly backup] -.SSH: pg_dump.-> db
+  gha -.encrypted dump.-> r2[(Cloudflare R2<br/>30-day backups)]
 ```
 
 - **Edge:** Caddy terminates TLS with automatic Let's Encrypt certificates, redirects HTTP and
@@ -226,8 +228,11 @@ flowchart LR
   migration means the new API never starts.
 - **DNS:** records point straight at the reserved IP (Cloudflare's proxy is off). The CAA record
   allows Let's Encrypt; Cloudflare automatically adds its own CAs to that set.
-- **Not yet:** off-site backups, outbound email, and monitoring. The data volume is the only copy
-  of the database until backups land ([roadmap](roadmap.md), phase 2).
+- **Backups:** nightly, a GitHub Actions job streams `pg_dump` over SSH, encrypts it with age,
+  uploads it to R2 (30-day retention, 7-day write-once lock), then restores that copy into a
+  throwaway Postgres to prove it works. RPO 24 h, RTO about 15 min
+  ([ADR-0015](adr/0015-backups.md)).
+- **Not yet:** outbound email and monitoring ([roadmap](roadmap.md), phase 2).
 - **Disposable server:** IPs and the data volume are separate OpenTofu resources, so the server
   can be replaced at any time ([infra/README.md](../infra/README.md)).
 

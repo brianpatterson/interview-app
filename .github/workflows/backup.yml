@@ -1,0 +1,82 @@
+name: Backup
+
+# Nightly: dump the production database, encrypt it, upload it to Cloudflare R2, then download it
+# back and restore it into a throwaway Postgres to prove it works. ADR-0015.
+on:
+  schedule:
+    - cron: '17 7 * * *' # 07:17 UTC ≈ 2–3am US Eastern. Off the hour, when GitHub is busiest.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Shares the deploy's group: a backup never runs during a deploy or its migrations, and vice versa.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Holds its own copies of the SSH credentials plus the R2 and age secrets, and deploys nothing
+    # (using `production` here would show every backup as a deployment).
+    environment: backups
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      # R2 rejects some of the newer default integrity checksums the AWS CLI sends.
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+      R2_ENDPOINT: ${{ vars.R2_ENDPOINT }}
+      R2_BUCKET: ${{ vars.R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install age
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq age && age --version
+
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf 'Host prod\n  HostName %s\n  User deploy\n  IdentityFile ~/.ssh/deploy_key\n  StrictHostKeyChecking yes\n' \
+            "$DEPLOY_HOST" > ~/.ssh/config
+
+      - name: Dump and encrypt
+        env:
+          AGE_IDENTITY: ${{ secrets.AGE_IDENTITY }}
+        run: |
+          set -o pipefail
+          # Encrypt to the public half of the key. The plaintext dump only ever exists in the pipe.
+          recipient=$(printf '%s\n' "$AGE_IDENTITY" | age-keygen -y)
+          # pg_dump takes a consistent snapshot while the app keeps running.
+          ssh prod 'docker exec interview-app-prod-db-1 pg_dump -U app -d app --format=custom' \
+            | age --recipient "$recipient" > app.dump.age
+          # Recorded for the restore check: the dump must contain exactly what was live.
+          ssh prod "docker exec interview-app-prod-db-1 psql -U app -d app -Atc 'select count(*) from drizzle.__drizzle_migrations'" \
+            > live-migrations
+          name="daily/app-$(date -u +%Y-%m-%dT%H%M%SZ).dump.age"
+          echo "OBJECT=$name" >> "$GITHUB_ENV"
+          ls -l app.dump.age
+
+      - name: Upload to R2
+        run: aws s3 cp app.dump.age "s3://$R2_BUCKET/$OBJECT" --endpoint-url "$R2_ENDPOINT" --no-progress
+
+      - name: Restore test (download the uploaded copy, restore it, check it)
+        env:
+          AGE_IDENTITY: ${{ secrets.AGE_IDENTITY }}
+        run: |
+          aws s3 cp "s3://$R2_BUCKET/$OBJECT" restored.dump.age --endpoint-url "$R2_ENDPOINT" --no-progress
+          umask 077 && printf '%s\n' "$AGE_IDENTITY" > "$RUNNER_TEMP/age.key"
+          {
+            echo "## Backup \`$OBJECT\`"
+            AGE_IDENTITY_FILE="$RUNNER_TEMP/age.key" EXPECTED_MIGRATIONS=$(cat live-migrations) \
+              deploy/verify-backup.sh restored.dump.age
+          } >> "$GITHUB_STEP_SUMMARY"
