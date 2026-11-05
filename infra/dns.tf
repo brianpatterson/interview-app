@@ -29,7 +29,9 @@ resource "cloudflare_dns_record" "www" {
   proxied = false
 }
 
-# Only Let's Encrypt may issue certificates for this domain.
+# Lets Let's Encrypt issue certificates for this domain. Cloudflare's Universal SSL automatically
+# adds CAA records for its own CAs alongside this one (they appear in `dig CAA` but not in
+# OpenTofu), so the effective set is Let's Encrypt plus Cloudflare's CAs. Other CAs are refused.
 resource "cloudflare_dns_record" "caa" {
   zone_id = var.cloudflare_zone_id
   name    = var.domain
