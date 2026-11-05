@@ -1,0 +1,118 @@
+name: Deploy
+
+# Every green CI run on main ships to production. Manual runs (Actions → Deploy → Run workflow)
+# redeploy the current main, e.g. after replacing the droplet.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time, and never cancel one halfway through.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  # The commit CI tested (workflow_run), or the current main (manual run).
+  SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/interview-app
+
+jobs:
+  build:
+    # `branches: [main]` above matches the branch *name*, which a fork's PR can also use. Only
+    # deploy CI runs from a push to this repository's main.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write # push to GitHub Container Registry
+    strategy:
+      matrix:
+        app: [api, web]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.SHA }}
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: apps/${{ matrix.app }}/Dockerfile
+          push: true
+          # Immutable SHA tag for deploys and rollbacks; `latest` only for humans browsing.
+          tags: |
+            ${{ env.IMAGE_PREFIX }}-${{ matrix.app }}:${{ env.SHA }}
+            ${{ env.IMAGE_PREFIX }}-${{ matrix.app }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ env.SHA }}
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Secrets live in this protected environment, and GitHub records every deployment to it.
+    environment:
+      name: production
+      url: https://${{ vars.DOMAIN }}
+    permissions:
+      contents: read
+      packages: read # the server pulls images with this run's token
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.SHA }}
+
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          # Pinned host key from OpenTofu: no trust-on-first-use, and a server that isn't ours is refused.
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf 'Host prod\n  HostName %s\n  User deploy\n  IdentityFile ~/.ssh/deploy_key\n  StrictHostKeyChecking yes\n' \
+            "$DEPLOY_HOST" > ~/.ssh/config
+
+      - name: Copy compose file and deploy script
+        run: scp compose.prod.yml deploy/deploy.sh prod:/opt/interview-app/
+
+      - name: Deploy (health-checked, rolls back on failure)
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          # Log in to the registry with this run's short-lived token, in a throwaway Docker config,
+          # so no registry credential is ever stored on the server.
+          printf '%s' "$TOKEN" | ssh prod "
+            set -e
+            export DOCKER_CONFIG=\$(mktemp -d); trap 'rm -rf \$DOCKER_CONFIG' EXIT
+            docker login ghcr.io -u '$ACTOR' --password-stdin >/dev/null
+            /opt/interview-app/deploy.sh '$IMAGE_PREFIX-api:$SHA' '$IMAGE_PREFIX-web:$SHA'
+          "
+
+      - name: Smoke test from outside
+        env:
+          DOMAIN: ${{ vars.DOMAIN }}
+        run: |
+          curl -fsS --retry 5 --retry-delay 3 --retry-all-errors "https://$DOMAIN/api/health" | tee /dev/stderr | grep -q '"db":"up"'
+          curl -fsS -o /dev/null -w 'index.html: %{http_code}\n' "https://$DOMAIN/"

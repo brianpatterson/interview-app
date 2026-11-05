@@ -1,8 +1,5 @@
 # Production edge: TLS (automatic Let's Encrypt), static SPA, and /api reverse proxy.
-# DOMAIN and ACME_EMAIL come from the environment (see compose.prod.yml).
-{
-	email {$ACME_EMAIL}
-}
+# DOMAIN comes from the environment (see compose.prod.yml).
 
 www.{$DOMAIN} {
 	redir https://{$DOMAIN}{uri} permanent

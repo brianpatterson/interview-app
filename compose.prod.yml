@@ -1,5 +1,6 @@
 # Production stack: Caddy (web) → API → Postgres. Runs on the server from /opt/interview-app with
-# a .env file next to it (see .env.prod.example). Locally: docker compose -f compose.prod.yml up.
+# a .env file next to it (created by deploy/init-env.sh; see .env.prod.example) and is deployed by
+# deploy/deploy.sh. Locally: docker compose -f compose.prod.yml up.
 name: interview-app-prod
 
 services:
@@ -13,7 +14,6 @@ services:
       - '443:443/udp' # HTTP/3
     environment:
       DOMAIN: ${DOMAIN:?set DOMAIN}
-      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL}
     volumes:
       # Certificates live on the data volume so a rebuilt server doesn't re-request them
       # (Let's Encrypt rate-limits duplicate certificates).

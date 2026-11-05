@@ -39,10 +39,48 @@ created. To check:
 ssh ops@<ipv4> 'cloud-init status --long && findmnt /srv/data && free -h && docker version --format {{.Server.Version}} && id'
 ```
 
+## Deploying the app
+
+Every green CI run on `main` deploys automatically ([ADR-0014](../docs/adr/0014-push-based-deploys.md)).
+The workflow is `.github/workflows/deploy.yml`; the server side is `deploy/deploy.sh`.
+
+### One-time setup (after the first `tofu apply`)
+
+```bash
+cd infra
+
+# 1. Production config on the server, with generated secrets (never leaves the server).
+ssh ops@$(tofu output -raw ipv4) 'bash -s -- roundtableapp.us' < ../deploy/init-env.sh
+
+# 2. GitHub environment that holds the deploy credentials. Deploys only from main.
+gh api -X PUT repos/brianpatterson/interview-app/environments/production \
+  -F 'deployment_branch_policy[protected_branches]=false' \
+  -F 'deployment_branch_policy[custom_branch_policies]=true'
+gh api -X POST repos/brianpatterson/interview-app/environments/production/deployment-branch-policies \
+  -f name=main -f type=branch
+
+# 3. Deploy key and pinned host key from OpenTofu, plus non-secret settings.
+tofu output -raw deploy_private_key | gh secret set DEPLOY_SSH_KEY --env production
+tofu output -raw known_hosts | gh secret set DEPLOY_KNOWN_HOSTS --env production
+gh variable set DEPLOY_HOST --env production --body "$(tofu output -raw ipv4)"
+gh variable set DOMAIN --env production --body roundtableapp.us
+```
+
+### Everyday operations
+
+| Task                                                       | How                                                                                                                                                                     |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Deploy                                                     | Merge to `main`. Watch it under **Actions → Deploy**.                                                                                                                   |
+| Redeploy current `main` (e.g. after replacing the droplet) | **Actions → Deploy → Run workflow**, or `gh workflow run deploy.yml`                                                                                                    |
+| Roll back to an earlier release                            | Open that release's successful **Deploy** run and click **Re-run all jobs**. It redeploys exactly that SHA. Only safe if migrations since then are backward-compatible. |
+| What's live?                                               | `ssh ops@<ipv4> cat /opt/interview-app/.deployed`                                                                                                                       |
+| Logs                                                       | `ssh ops@<ipv4> 'cd /opt/interview-app && docker compose -f compose.prod.yml --env-file .env logs --tail 100 api'`                                                      |
+| Add OAuth credentials                                      | Edit `/opt/interview-app/.env` as `ops`, then redeploy                                                                                                                  |
+
 ## Things that replace the droplet
 
 Changing `cloud-init.yaml.tftpl`, `droplet_size`, `region` or the image **replaces** the droplet.
-The reserved IP and the `/srv/data` volume survive and reattach. The AAAA record moves to the new
+The reserved IP, the `/srv/data` volume (including `/opt/interview-app`: `.env` and deploy state) and the SSH host key survive. The AAAA record moves to the new
 droplet's IPv6. `tofu plan` says "must be replaced" when this will happen. Afterwards, redeploy
 the app.
 

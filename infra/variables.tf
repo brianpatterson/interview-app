@@ -44,12 +44,6 @@ variable "admin_ssh_public_key_path" {
   default     = "~/.ssh/id_ed25519.pub"
 }
 
-variable "deploy_ssh_public_key" {
-  description = "Public key GitHub Actions uses for the `deploy` user (docker only). Empty = no deploy user key yet."
-  type        = string
-  default     = ""
-}
-
 variable "ssh_allowed_cidrs" {
   description = "Networks allowed to reach SSH. Open by default because GitHub-hosted runners have no fixed IPs; access is key-only and fail2ban-protected."
   type        = list(string)
