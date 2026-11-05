@@ -94,6 +94,8 @@ jobs:
           # `tofu console` in test-cloud-init.sh hung until the job timed out.
           tofu_wrapper: false
       - run: tofu fmt -check -recursive
+      - name: ShellCheck (deploy and infra scripts)
+        run: shellcheck ../deploy/*.sh test-cloud-init.sh
       - run: tofu init -backend=false
       - run: tofu validate
       - name: cloud-init creates the expected users
