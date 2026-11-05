@@ -16,8 +16,10 @@ cloud firewall, and Cloudflare DNS. Why it looks like this:
      access to `regions`, `sizes`, `image`, `actions`. If `tofu apply` fails with a 403 naming a
      missing scope, edit the token to add it and apply again.
    - `cloudflare_api_token`: Cloudflare → My Profile → API Tokens → "Edit zone DNS", limited to
-     this zone
+     this zone, plus the permission **Account → Workers R2 Storage → Edit** for your account
+     (for the backup and state buckets)
    - `cloudflare_zone_id`: Cloudflare → the domain → Overview, right-hand column
+   - `cloudflare_account_id`: same column, under **Account ID**
    - `domain`
 
 `terraform.tfvars`, `terraform.tfstate` and saved plans (`tfplan`) hold secrets and are git-ignored. Back up the state
@@ -77,6 +79,84 @@ gh variable set DOMAIN --env production --body roundtableapp.us
 | Logs                                                       | `ssh ops@<ipv4> 'cd /opt/interview-app && docker compose -f compose.prod.yml --env-file .env logs --tail 100 api'`                                                      |
 | Add OAuth credentials                                      | Edit `/opt/interview-app/.env` as `ops`, then redeploy                                                                                                                  |
 
+## Backups
+
+Every night at 07:17 UTC, `.github/workflows/backup.yml` dumps the database (`pg_dump`, custom
+format), encrypts it with [age](https://age-encryption.org), uploads it to the R2 bucket
+`<domain>-backups`, then downloads that copy and restores it into a throwaway Postgres to prove
+it works ([ADR-0015](../docs/adr/0015-backups.md)). Each run's summary shows the row counts. A
+failed run emails you.
+
+- **Retention:** 30 days, then R2 deletes them. Nothing can delete or overwrite a backup in its
+  first 7 days (bucket lock).
+- **Recovery point:** up to 24 hours of changes can be lost. **Recovery time:** about 15 minutes.
+- **The age private key is the only way to read a backup.** It lives in your password manager and
+  in the `backups` GitHub environment. Lose both and every backup is useless.
+
+### One-time setup
+
+1. Cloudflare dashboard → **R2** → enable it (the free plan asks for a payment method; nothing is
+   charged within the free tier). Add the R2 permission to the OpenTofu token and
+   `cloudflare_account_id` to `terraform.tfvars` (see Prerequisites), then `tofu plan` and
+   `tofu apply` as usual. Expect 4 to add.
+2. R2 → **Manage API tokens** → **Create Account API token**: permission **Object Read & Write**,
+   applied to the `<domain>-backups` bucket only. Keep the page open for step 4.
+3. The encryption key. Save `backups.agekey` in your password manager, then delete the file:
+
+   ```bash
+   brew install age
+   age-keygen -o backups.agekey
+   ```
+
+4. The `backups` GitHub environment (deploys from `main` only), from `infra/`. `gh secret set`
+   without `--body` prompts for the value, so paste the two R2 values from step 2 there:
+
+   ```bash
+   gh api -X PUT repos/brianpatterson/interview-app/environments/backups \
+     -F 'deployment_branch_policy[protected_branches]=false' \
+     -F 'deployment_branch_policy[custom_branch_policies]=true'
+   gh api -X POST repos/brianpatterson/interview-app/environments/backups/deployment-branch-policies \
+     -f name=main -f type=branch
+   gh secret set AGE_IDENTITY --env backups < backups.agekey
+   gh secret set R2_ACCESS_KEY_ID --env backups
+   gh secret set R2_SECRET_ACCESS_KEY --env backups
+   tofu output -raw deploy_private_key | gh secret set DEPLOY_SSH_KEY --env backups
+   tofu output -raw known_hosts | gh secret set DEPLOY_KNOWN_HOSTS --env backups
+   gh variable set DEPLOY_HOST --env backups --body "$(tofu output -raw ipv4)"
+   gh variable set R2_ENDPOINT --env backups --body "$(tofu output -raw r2_endpoint)"
+   gh variable set R2_BUCKET --env backups --body "$(tofu output -raw backup_bucket)"
+   ```
+
+5. Run the first backup (`gh workflow run backup.yml`) and read its summary.
+
+### Restore production from a backup
+
+Practice this on a local stack before you need it. You need the age key and an R2 token that can
+read the bucket.
+
+```bash
+# 1. Download and check it. verify-backup.sh restores into a throwaway database, not production.
+brew install awscli
+export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_DEFAULT_REGION=auto
+aws s3 ls "s3://$(tofu output -raw backup_bucket)/daily/" --endpoint-url "$(tofu output -raw r2_endpoint)"
+aws s3 cp "s3://$(tofu output -raw backup_bucket)/daily/<file>" app.dump.age --endpoint-url "$(tofu output -raw r2_endpoint)"
+AGE_IDENTITY_FILE=backups.agekey ../deploy/verify-backup.sh app.dump.age
+age -d -i backups.agekey -o app.dump app.dump.age
+
+# 2. Stop the app, replace the database in one transaction, start the app.
+scp app.dump ops@<ipv4>:/tmp/app.dump
+ssh ops@<ipv4>
+cd /opt/interview-app
+docker compose -f compose.prod.yml --env-file .env stop web api
+docker exec -i interview-app-prod-db-1 pg_restore -U app -d app --clean --if-exists \
+  --no-owner --single-transaction --exit-on-error < /tmp/app.dump
+docker compose -f compose.prod.yml --env-file .env start api web
+shred -u /tmp/app.dump
+```
+
+Then delete `app.dump` and `app.dump.age` locally. If the restored data is from an older schema,
+redeploy the release that matches it, or let the next deploy migrate it forward.
+
 ## Things that replace the droplet
 
 Changing `cloud-init.yaml.tftpl`, `droplet_size`, `region` or the image **replaces** the droplet.
@@ -86,12 +166,13 @@ the app.
 
 ## Runbook
 
-| Situation                     | Do this                                                                                                                              |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Droplet is unreachable        | DigitalOcean console → droplet → **Recovery Console** (out-of-band), check status; or `tofu apply -replace=digitalocean_droplet.app` |
-| Out of memory                 | Check `free -h` and `docker stats`; then `droplet_size = "s-1vcpu-2gb"` and `tofu apply` (replaces the droplet)                      |
-| Disk full on `/srv/data`      | Raise `data_volume_size`, `tofu apply`, then `sudo resize2fs /dev/disk/by-id/scsi-0DO_Volume_interview-app-data`                     |
-| Rotate the DigitalOcean token | Generate a new token, update `terraform.tfvars`, revoke the old one                                                                  |
-| Tear everything down          | `tofu destroy` refuses because the volume has `prevent_destroy`. Remove that line deliberately if you really mean it                 |
+| Situation                     | Do this                                                                                                                                      |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Droplet is unreachable        | DigitalOcean console → droplet → **Recovery Console** (out-of-band), check status; or `tofu apply -replace=digitalocean_droplet.app`         |
+| Out of memory                 | Check `free -h` and `docker stats`; then `droplet_size = "s-1vcpu-2gb"` and `tofu apply` (replaces the droplet)                              |
+| Disk full on `/srv/data`      | Raise `data_volume_size`, `tofu apply`, then `sudo resize2fs /dev/disk/by-id/scsi-0DO_Volume_interview-app-data`                             |
+| Rotate the DigitalOcean token | Generate a new token, update `terraform.tfvars`, revoke the old one                                                                          |
+| Backup run failed             | Open the run's log. SSH or R2 errors: check the `backups` environment secrets. Restore check failed: the backup is unusable, so fix it today |
+| Tear everything down          | `tofu destroy` refuses because the volume and buckets have `prevent_destroy`. Remove those lines deliberately if you really mean it          |
 
 Past incidents and what they taught us are in [docs/incidents/](../docs/incidents/).

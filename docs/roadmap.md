@@ -29,7 +29,7 @@ in a hosting ADR when built.
    git SHA, and pushes them to GitHub Container Registry. A deploy job then runs migrations as a
    one-off container, rolls the API, health-checks `/api/health`, and rolls back if that fails.
    Production is a protected GitHub Environment holding the secrets.
-5. **Data safety**: nightly `pg_dump` to object storage with retention, plus a **tested restore**
+5. ✅ **Data safety** ([ADR-0015](adr/0015-backups.md)): nightly `pg_dump` to object storage with retention, plus a **tested restore**
    (a backup you haven't restored isn't a backup).
 6. **Email**: a real provider (Resend) on the domain, with SPF/DKIM/DMARC records, then turn on
    required email verification.

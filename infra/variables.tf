@@ -5,13 +5,18 @@ variable "do_token" {
 }
 
 variable "cloudflare_api_token" {
-  description = "Cloudflare API token with Zone:DNS:Edit on this domain only."
+  description = "Cloudflare API token with Zone:DNS:Edit on this domain and Account:Workers R2 Storage:Edit (see README)."
   type        = string
   sensitive   = true
 }
 
 variable "cloudflare_zone_id" {
   description = "Zone ID from the domain's Overview page in Cloudflare (right-hand column)."
+  type        = string
+}
+
+variable "cloudflare_account_id" {
+  description = "Cloudflare account ID (dashboard home → the account's ⋯ menu → Copy account ID, or the right-hand column of the domain's Overview page)."
   type        = string
 }
 

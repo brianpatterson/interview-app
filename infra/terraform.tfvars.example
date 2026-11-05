@@ -1,8 +1,9 @@
 # Copy to terraform.tfvars (git-ignored) and fill in. Never commit the real file.
-do_token             = ""
-cloudflare_api_token = ""
-cloudflare_zone_id   = ""
-domain               = "example.com"
+do_token              = ""
+cloudflare_api_token  = ""
+cloudflare_zone_id    = ""
+cloudflare_account_id = ""
+domain                = "example.com"
 
 # Optional overrides:
 # region                    = "nyc3"

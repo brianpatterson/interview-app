@@ -26,3 +26,13 @@ output "deploy_private_key" {
   value       = tls_private_key.deploy.private_key_openssh
   sensitive   = true
 }
+
+output "r2_endpoint" {
+  description = "S3 API endpoint for R2 (GitHub variable R2_ENDPOINT)."
+  value       = local.r2_endpoint
+}
+
+output "backup_bucket" {
+  description = "Bucket for database backups (GitHub variable R2_BUCKET)."
+  value       = cloudflare_r2_bucket.backups.name
+}
