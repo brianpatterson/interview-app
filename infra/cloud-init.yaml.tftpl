@@ -11,8 +11,10 @@ packages:
   - fail2ban
 
 users:
-  # Humans: SSH key login, passwordless sudo.
-  - name: admin
+  # Humans: SSH key login, passwordless sudo. Not named "admin": DigitalOcean's Ubuntu image
+  # already has an `admin` group, which makes useradd fail (cloud-init logs it, but doesn't count
+  # it as a failure).
+  - name: ops
     groups: [sudo, docker]
     shell: /bin/bash
     sudo: "ALL=(ALL) NOPASSWD:ALL"
@@ -38,7 +40,7 @@ write_files:
       PermitRootLogin no
       PasswordAuthentication no
       KbdInteractiveAuthentication no
-      AllowUsers admin deploy
+      AllowUsers ops deploy
   - path: /etc/apt/apt.conf.d/20auto-upgrades
     content: |
       APT::Periodic::Update-Package-Lists "1";
@@ -55,6 +57,10 @@ write_files:
 runcmd:
   # Attach the data volume at /srv/data. The attachment can land a few seconds after boot.
   - for i in $(seq 1 60); do [ -e ${volume_device} ] && break; sleep 2; done
+  # DigitalOcean also auto-mounts pre-formatted volumes under /mnt/<name>. Undo that, so the
+  # volume is mounted exactly once, at /srv/data.
+  - umount /mnt/interview_app_data 2>/dev/null || true
+  - sed -i '\#/mnt/interview_app_data#d' /etc/fstab
   - mkdir -p /srv/data
   - echo '${volume_device} /srv/data ext4 discard,nofail,defaults 0 0' >> /etc/fstab
   - mount /srv/data
@@ -63,6 +69,6 @@ runcmd:
   - fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
   - echo '/swapfile none swap sw 0 0' >> /etc/fstab
   # App directory: compose.prod.yml and .env live here.
-  - mkdir -p /opt/interview-app && chown admin:docker /opt/interview-app && chmod 770 /opt/interview-app
+  - mkdir -p /opt/interview-app && chown ops:docker /opt/interview-app && chmod 770 /opt/interview-app
   - systemctl enable --now docker fail2ban
   - systemctl restart ssh

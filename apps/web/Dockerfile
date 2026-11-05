@@ -14,6 +14,6 @@ COPY packages/shared packages/shared
 COPY apps/web apps/web
 RUN pnpm --filter @interview-app/web build
 
-FROM caddy:2.10-alpine
+FROM caddy:2.11-alpine
 COPY apps/web/Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /repo/apps/web/dist /srv
