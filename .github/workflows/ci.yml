@@ -89,3 +89,5 @@ jobs:
       - run: tofu fmt -check -recursive
       - run: tofu init -backend=false
       - run: tofu validate
+      - name: cloud-init creates the expected users
+        run: ./test-cloud-init.sh

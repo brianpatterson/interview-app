@@ -36,7 +36,7 @@ The outputs show the IPs and the SSH command. cloud-init takes 2–4 minutes aft
 created. To check:
 
 ```bash
-ssh admin@<ipv4> 'cloud-init status --wait && df -h /srv/data && free -h && docker version --format {{.Server.Version}}'
+ssh ops@<ipv4> 'cloud-init status --long && findmnt /srv/data && free -h && docker version --format {{.Server.Version}} && id'
 ```
 
 ## Things that replace the droplet
@@ -55,3 +55,5 @@ the app.
 | Disk full on `/srv/data`      | Raise `data_volume_size`, `tofu apply`, then `sudo resize2fs /dev/disk/by-id/scsi-0DO_Volume_interview-app-data`                     |
 | Rotate the DigitalOcean token | Generate a new token, update `terraform.tfvars`, revoke the old one                                                                  |
 | Tear everything down          | `tofu destroy` refuses because the volume has `prevent_destroy`. Remove that line deliberately if you really mean it                 |
+
+Past incidents and what they taught us are in [docs/incidents/](../docs/incidents/).
