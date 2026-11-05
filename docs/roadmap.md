@@ -19,7 +19,7 @@ in a hosting ADR when built.
 1. ✅ **Containers**: multi-stage Dockerfiles. The API runs as a Node image with a non-root user.
    The web app is built to static files served by Caddy. A `compose.prod.yml` wires Caddy, the
    API and Postgres together.
-2. ✅ **Infrastructure as code** (applied 2026-11-05; state is still local until it moves to R2) (`infra/`, OpenTofu): DigitalOcean droplet, firewall (only 22/80/443
+2. ✅ **Infrastructure as code** (applied 2026-11-05; encrypted state in R2) (`infra/`, OpenTofu): DigitalOcean droplet, firewall (only 22/80/443
    open), SSH key, a reserved IP, a data volume, and DNS records. cloud-init installs Docker, creates a deploy
    user, disables password SSH, and turns on unattended security upgrades.
 3. ✅ **Edge**: Caddy terminates TLS with automatic Let's Encrypt certificates, serves the SPA,
@@ -29,7 +29,7 @@ in a hosting ADR when built.
    one-off container, rolls the API, health-checks `/api/health`, and rolls back if that fails.
    Production is a protected GitHub Environment holding the secrets.
 5. ✅ **Data safety** ([ADR-0015](adr/0015-backups.md)): nightly `pg_dump` to object storage with retention, plus a **tested restore**
-   (a backup you haven't restored isn't a backup). Next: OpenTofu state moves to the same R2 account.
+   (a backup you haven't restored isn't a backup). OpenTofu state is in R2 too, encrypted ([ADR-0016](adr/0016-remote-encrypted-state.md)).
 6. **Email**: a real provider (Resend) on the domain, with SPF/DKIM/DMARC records, then turn on
    required email verification.
 7. **Observability (minimum)**: structured logs, an external uptime check, and error tracking

@@ -235,6 +235,8 @@ flowchart LR
 - **Not yet:** outbound email and monitoring ([roadmap](roadmap.md), phase 2).
 - **Disposable server:** IPs and the data volume are separate OpenTofu resources, so the server
   can be replaced at any time ([infra/README.md](../infra/README.md)).
+- **Infrastructure state:** OpenTofu state is in R2, encrypted on the operator's machine before
+  upload and locked during runs ([ADR-0016](adr/0016-remote-encrypted-state.md)).
 
 ### Delivery pipeline
 

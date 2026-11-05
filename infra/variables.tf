@@ -54,3 +54,9 @@ variable "ssh_allowed_cidrs" {
   type        = list(string)
   default     = ["0.0.0.0/0", "::/0"]
 }
+
+variable "state_passphrase" {
+  description = "Encrypts the OpenTofu state and saved plans (at least 16 characters). Keep it in your password manager: without it the state can't be read."
+  type        = string
+  sensitive   = true
+}

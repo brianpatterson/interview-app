@@ -86,6 +86,8 @@ jobs:
     defaults:
       run:
         working-directory: infra
+    env:
+      TF_INPUT: 0 # fail instead of waiting for input that will never come
     steps:
       - uses: actions/checkout@v7
       - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
