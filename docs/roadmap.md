@@ -25,7 +25,7 @@ in a hosting ADR when built.
    remote backend (Cloudflare R2, S3-compatible).
 3. ✅ **Edge**: Caddy terminates TLS with automatic Let's Encrypt certificates, serves the SPA,
    reverse-proxies `/api/*`, and sets security headers (HSTS, CSP).
-4. **Delivery pipeline**: on merge to `main`, GitHub Actions builds the images, tags them with the
+4. ✅ **Delivery pipeline** ([ADR-0014](adr/0014-push-based-deploys.md)): on merge to `main`, GitHub Actions builds the images, tags them with the
    git SHA, and pushes them to GitHub Container Registry. A deploy job then runs migrations as a
    one-off container, rolls the API, health-checks `/api/health`, and rolls back if that fails.
    Production is a protected GitHub Environment holding the secrets.

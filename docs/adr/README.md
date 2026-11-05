@@ -23,3 +23,4 @@ you'd want to explain in an interview. Copy [template.md](template.md).
 | 0011 | [Self-hosted authentication with Better Auth](0011-authentication.md)                                            | Accepted           |
 | 0012 | [Host on a single Hetzner VPS, provisioned with OpenTofu](0012-hosting-single-vps.md)                            | Superseded by 0013 |
 | 0013 | [Host on DigitalOcean instead of Hetzner; R2 for off-site storage](0013-digitalocean-instead-of-hetzner.md)      | Accepted           |
+| 0014 | [Push-based deploys from GitHub Actions over SSH, with health-checked rollback](0014-push-based-deploys.md)      | Accepted           |
