@@ -39,7 +39,7 @@ variable "data_volume_size" {
 }
 
 variable "admin_ssh_public_key_path" {
-  description = "Your SSH public key, for the `admin` user (sudo)."
+  description = "Your SSH public key, for the `ops` user (sudo)."
   type        = string
   default     = "~/.ssh/id_ed25519.pub"
 }

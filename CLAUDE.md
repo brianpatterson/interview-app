@@ -48,8 +48,9 @@ pnpm check          # lint + format check + typecheck + dependency register + te
    Another user's rows are a 404, never a 403. Add a cross-user test for any new resource.
 9. **Config:** new environment variables go in `src/env.ts` (validated), `.env.example`
    (documented), and, if production needs them, `compose.prod.yml` and `.env.prod.example`. Never commit secrets. `.env` is git-ignored.
-10. **Infrastructure:** changes to `infra/` must pass `tofu fmt -check` and `tofu validate`. Never
-    run `tofu apply` yourself; a human reviews the plan and applies it.
+10. **Infrastructure:** changes to `infra/` must pass `tofu fmt -check`, `tofu validate` and
+    `infra/test-cloud-init.sh`. Never run `tofu apply` yourself; a human reviews the plan and
+    applies it.
 
 ## Conventions
 
@@ -57,4 +58,5 @@ pnpm check          # lint + format check + typecheck + dependency register + te
 - TypeScript is pinned to `~6.0` until typescript-eslint supports TS 7.
 - GitHub Actions: pin third-party actions (anything outside `actions/*` and `github/*`) to a full
   commit SHA with the version in a comment. Dependabot keeps the pins current. Give every workflow
-  an explicit `permissions:` block (default `contents: read`).
+  an explicit `permissions:` block (default `contents: read`). Every job sets `timeout-minutes` (GitHub's
+  default is 6 hours, so a hung step blocks a PR for that long).
