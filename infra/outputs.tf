@@ -15,3 +15,14 @@ output "ssh" {
 output "url" {
   value = "https://${var.domain}"
 }
+
+output "known_hosts" {
+  description = "known_hosts line for the server (GitHub secret DEPLOY_KNOWN_HOSTS)."
+  value       = "${digitalocean_reserved_ip.app.ip_address} ${trimspace(tls_private_key.host.public_key_openssh)}"
+}
+
+output "deploy_private_key" {
+  description = "Private key for the deploy user (GitHub secret DEPLOY_SSH_KEY). Read with `tofu output -raw deploy_private_key`."
+  value       = tls_private_key.deploy.private_key_openssh
+  sensitive   = true
+}

@@ -21,18 +21,26 @@ users:
     lock_passwd: true
     ssh_authorized_keys:
       - ${admin_ssh_public_key}
-%{ if deploy_ssh_public_key != "" ~}
-  # GitHub Actions: can run docker (and only that, by convention). No sudo.
+  # GitHub Actions: can run docker (and only that, by convention). No sudo. Its key is generated
+  # by OpenTofu (keys.tf).
   - name: deploy
     groups: [docker]
     shell: /bin/bash
     lock_passwd: true
     ssh_authorized_keys:
       - ${deploy_ssh_public_key}
-%{ endif ~}
 
 disable_root: true
 ssh_pwauth: false
+
+# A fixed SSH host key from OpenTofu (keys.tf) instead of a random one per boot: CI can verify
+# the server's identity, and the key survives droplet replacement.
+ssh_deletekeys: true
+ssh_genkeytypes: [ed25519] # we supply this one, so nothing is generated
+ssh_keys:
+  ed25519_private: |
+    ${indent(4, host_private_key)}
+  ed25519_public: ${host_public_key}
 
 write_files:
   - path: /etc/ssh/sshd_config.d/99-hardening.conf
@@ -68,7 +76,9 @@ runcmd:
   # 2 GB swap: headroom for a small instance during upgrades and image pulls.
   - fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
   - echo '/swapfile none swap sw 0 0' >> /etc/fstab
-  # App directory: compose.prod.yml and .env live here.
-  - mkdir -p /opt/interview-app && chown ops:docker /opt/interview-app && chmod 770 /opt/interview-app
+  # App directory (compose.prod.yml, .env, deploy state) lives on the volume so it survives
+  # droplet replacement; /opt/interview-app points at it.
+  - mkdir -p /srv/data/app && chown ops:docker /srv/data/app && chmod 770 /srv/data/app
+  - ln -sfn /srv/data/app /opt/interview-app
   - systemctl enable --now docker fail2ban
   - systemctl restart ssh

@@ -10,6 +10,10 @@ terraform {
       source  = "cloudflare/cloudflare"
       version = "~> 5.28"
     }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
   }
 
   # State is local (infra/terraform.tfstate, git-ignored) for now. It holds secrets, so treat it

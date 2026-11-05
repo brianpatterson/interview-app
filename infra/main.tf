@@ -51,7 +51,9 @@ resource "digitalocean_droplet" "app" {
 
   user_data = templatefile("${path.module}/cloud-init.yaml.tftpl", {
     admin_ssh_public_key  = trimspace(file(pathexpand(var.admin_ssh_public_key_path)))
-    deploy_ssh_public_key = trimspace(var.deploy_ssh_public_key)
+    deploy_ssh_public_key = trimspace(tls_private_key.deploy.public_key_openssh)
+    host_private_key      = tls_private_key.host.private_key_openssh
+    host_public_key       = trimspace(tls_private_key.host.public_key_openssh)
     volume_device         = local.volume_device
   })
 }
