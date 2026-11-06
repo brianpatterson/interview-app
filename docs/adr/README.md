@@ -25,3 +25,4 @@ you'd want to explain in an interview. Copy [template.md](template.md).
 | 0013 | [Host on DigitalOcean instead of Hetzner; R2 for off-site storage](0013-digitalocean-instead-of-hetzner.md)      | Accepted           |
 | 0014 | [Push-based deploys from GitHub Actions over SSH, with health-checked rollback](0014-push-based-deploys.md)      | Accepted           |
 | 0015 | [Back up nightly with encrypted pg_dump to R2, and restore-test every backup](0015-backups.md)                   | Accepted           |
+| 0016 | [Keep OpenTofu state in R2, encrypted client-side](0016-remote-encrypted-state.md)                               | Accepted           |

@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 # Renders cloud-init.yaml.tftpl the way OpenTofu does and runs it through Ubuntu 24.04's own
 # cloud-init in a container: schema validation, then the users step on an image that (like
-# DigitalOcean's) already has an `admin` group. Run from infra/ after `tofu init`.
+# DigitalOcean's) already has an `admin` group. Run from infra/. Needs tofu and Docker, but no
+# `tofu init`, credentials or state.
 set -euo pipefail
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
+mkdir "$work/console"
 
 ssh-keygen -q -t ed25519 -N "" -f "$work/host" >/dev/null
 cat >"$work/expr" <<EXPR
-templatefile("cloud-init.yaml.tftpl", {
+templatefile("$PWD/cloud-init.yaml.tftpl", {
   admin_ssh_public_key  = "ssh-ed25519 AAAAtest ci",
   deploy_ssh_public_key = "ssh-ed25519 AAAAdeploy ci",
   host_private_key      = file("$work/host"),
@@ -18,7 +20,9 @@ templatefile("cloud-init.yaml.tftpl", {
 })
 EXPR
 tr '\n' ' ' <"$work/expr" |
-  tofu console |
+  # In an empty directory: rendering needs only the template, not this configuration, its
+  # backend or its state (all of which need credentials).
+  (cd "$work/console" && TF_INPUT=0 tofu console) |
   sed -e '1s/^<<EOT$//' -e '$s/^EOT$//' >"$work/user-data.yaml"
 
 docker run --rm -v "$work:/seed:ro" ubuntu:24.04 bash -euc '
