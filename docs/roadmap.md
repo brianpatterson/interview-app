@@ -30,12 +30,13 @@ in a hosting ADR when built.
    Production is a protected GitHub Environment holding the secrets.
 5. ✅ **Data safety** ([ADR-0015](adr/0015-backups.md)): nightly `pg_dump` to object storage with retention, plus a **tested restore**
    (a backup you haven't restored isn't a backup). OpenTofu state is in R2 too, encrypted ([ADR-0016](adr/0016-remote-encrypted-state.md)).
-6. **Email**: a real provider (Resend) on the domain, with SPF/DKIM/DMARC records, then turn on
-   required email verification.
+6. ✅ **Email** ([ADR-0017](adr/0017-email-resend.md)): Resend from `mail.<domain>` with
+   SPF/DKIM/DMARC records in OpenTofu, and required email verification.
 7. **Observability (minimum)**: structured logs, an external uptime check, and error tracking
    (Sentry free tier, or self-hosted GlitchTip).
 
-Cost: $6/month droplet + ~$1 volume + $0 R2 (free tier) ≈ **$7/month**, plus the domain.
+Cost: $6/month droplet + ~$1 volume + $0 R2 (free tier) + $0 Resend (free tier, 3,000 emails a
+month) ≈ **$7/month**, plus the domain.
 
 ## Phase 3: The software factory
 

@@ -25,11 +25,30 @@ export function createAuth(db: Db, env: Env, sendEmail: SendEmail) {
     emailAndPassword: {
       enabled: true,
       minPasswordLength: 10,
+      // No session until the user clicks the emailed link: proves they own the address, which
+      // account linking (below) relies on, and stops sign-ups with someone else's email.
+      requireEmailVerification: true,
+      // A reset means the password may have leaked: sign out every other device.
+      revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url }) => {
         await sendEmail({
           to: user.email,
           subject: 'Reset your Interview App password',
           text: `Reset your password: ${url}\n\nIf you didn't ask for this, ignore this email.`,
+        });
+      },
+    },
+    emailVerification: {
+      sendOnSignUp: true,
+      // An unverified user who tries to sign in (or lost the first email) gets a fresh link.
+      sendOnSignIn: true,
+      // Clicking the link signs them in, instead of making them type the password again.
+      autoSignInAfterVerification: true,
+      sendVerificationEmail: async ({ user, url }) => {
+        await sendEmail({
+          to: user.email,
+          subject: 'Confirm your email for Interview App',
+          text: `Confirm your email to finish signing up: ${url}\n\nThe link expires in 1 hour. If you didn't sign up, ignore this email.`,
         });
       },
     },

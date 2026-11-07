@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Application } from '@interview-app/shared';
-import { env, setupTestApp, signUp } from './helpers.js';
+import { env, linkPath, setupTestApp, signUp, signUpUnverified, takeEmail } from './helpers.js';
 
 const t = setupTestApp();
 const { app } = t;
@@ -76,11 +76,80 @@ describe('authentication', () => {
       payload: { email, redirectTo: '/reset-password' },
     });
     expect(res.statusCode).toBe(200);
-    expect(t.sentEmails).toHaveLength(1);
-    expect(t.sentEmails[0]!.to).toBe(email);
-    expect(t.sentEmails[0]!.text).toContain('/reset-password');
+    expect(takeEmail(t, email, 'Reset your').text).toContain('/reset-password');
   });
 
+  it('signs out other devices after a password reset', async () => {
+    const { email, cookie } = await signUp(t);
+    await app.inject({
+      method: 'POST',
+      url: '/api/auth/request-password-reset',
+      headers: { origin: env.BETTER_AUTH_URL },
+      payload: { email, redirectTo: '/reset-password' },
+    });
+    const token = new URL(
+      takeEmail(t, email, 'Reset your').text.match(/https?:\/\/\S+/)![0],
+    ).pathname
+      .split('/')
+      .pop();
+    const reset = await app.inject({
+      method: 'POST',
+      url: '/api/auth/reset-password',
+      headers: { origin: env.BETTER_AUTH_URL },
+      payload: { token, newPassword: 'a brand new password' },
+    });
+    expect(reset.statusCode).toBe(200);
+    const res = await app.inject({ method: 'GET', url: '/api/applications', headers: { cookie } });
+    expect(res.statusCode).toBe(401);
+  });
+});
+
+describe('email verification', () => {
+  it('emails a link on sign-up and does not sign in until it is clicked', async () => {
+    const { email, res } = await signUpUnverified(t);
+    expect(res.cookies.some((c) => c.name.endsWith('session_token'))).toBe(false);
+    expect(takeEmail(t, email, 'Confirm your email').text).toContain(
+      '/api/auth/verify-email?token=',
+    );
+  });
+
+  it('refuses an unverified sign-in and sends a fresh link', async () => {
+    const { email, password } = await signUpUnverified(t);
+    takeEmail(t, email, 'Confirm your email');
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-in/email',
+      headers: { origin: env.BETTER_AUTH_URL },
+      payload: { email, password },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json<{ code: string }>().code).toBe('EMAIL_NOT_VERIFIED');
+    expect(takeEmail(t, email, 'Confirm your email')).toBeDefined();
+  });
+
+  it('signs in and redirects home when the link is clicked', async () => {
+    const { email } = await signUpUnverified(t);
+    const res = await app.inject({
+      method: 'GET',
+      url: linkPath(takeEmail(t, email, 'Confirm your email')),
+    });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe('/');
+    expect(res.cookies.some((c) => c.name.endsWith('session_token') && c.httpOnly)).toBe(true);
+  });
+
+  it('redirects with an error for a bad link', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/auth/verify-email?token=not-a-real-token&callbackURL=%2F',
+    });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toMatch(/^\/\?error=/);
+    expect(res.cookies.some((c) => c.name.endsWith('session_token'))).toBe(false);
+  });
+});
+
+describe('per-user data', () => {
   it("keeps each user's applications private", async () => {
     const alice = await signUp(t);
     const bob = await signUp(t);

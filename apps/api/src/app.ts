@@ -3,7 +3,7 @@ import { sql } from 'drizzle-orm';
 import type { HealthResponse } from '@interview-app/shared';
 import { createAuth, enabledProviders } from './auth.js';
 import type { Db } from './db/index.js';
-import { logMailer, type SendEmail } from './email.js';
+import { mailerFromEnv, type SendEmail } from './email.js';
 import type { Env } from './env.js';
 import { applicationRoutes } from './routes/applications.js';
 import { authRoutes } from './routes/auth.js';
@@ -11,7 +11,7 @@ import { authRoutes } from './routes/auth.js';
 export function buildApp(db: Db, env: Env, opts: { logger?: boolean; sendEmail?: SendEmail } = {}) {
   // Behind Caddy in production (and Vite in dev): use X-Forwarded-* for the client IP and protocol.
   const app = Fastify({ logger: opts.logger ?? true, trustProxy: true });
-  const auth = createAuth(db, env, opts.sendEmail ?? logMailer(app.log));
+  const auth = createAuth(db, env, opts.sendEmail ?? mailerFromEnv(env, app.log));
 
   app.get('/api/health', async (): Promise<HealthResponse> => {
     let dbStatus: HealthResponse['db'] = 'up';

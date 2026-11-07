@@ -188,9 +188,11 @@ sequenceDiagram
 - **Brute force:** Better Auth's rate limiter (in-memory, production only) throttles auth
   endpoints. With more than one API instance it would need shared storage
   ([ADR-0011](adr/0011-authentication.md)).
-- **Email:** for now, emails (password reset links) are written to the API log, **including in
-  production**, so a user who forgets their password needs an operator. A real provider (Resend)
-  is the next email step ([roadmap](roadmap.md)).
+- **Email verification:** email/password sign-ups get no session until they click a link sent to
+  their address, so every account's email is proven (account linking depends on it). Emails go
+  through Resend from `mail.<domain>`, signed with DKIM under a DMARC `quarantine` policy. In
+  development they're written to the API log instead ([ADR-0017](adr/0017-email-resend.md)).
+- **Password reset** signs out every other session.
 
 ## 7. Environments and delivery
 
@@ -232,7 +234,9 @@ flowchart LR
   uploads it to R2 (30-day retention, 7-day write-once lock), then restores that copy into a
   throwaway Postgres to prove it works. RPO 24 h, RTO about 15 min
   ([ADR-0015](adr/0015-backups.md)).
-- **Not yet:** outbound email and monitoring ([roadmap](roadmap.md), phase 2).
+- **Email:** Resend's HTTP API, from `no-reply@mail.<domain>`. The API refuses to start in
+  production without its key ([ADR-0017](adr/0017-email-resend.md)).
+- **Not yet:** monitoring ([roadmap](roadmap.md), phase 2).
 - **Disposable server:** IPs and the data volume are separate OpenTofu resources, so the server
   can be replaced at any time ([infra/README.md](../infra/README.md)).
 - **Infrastructure state:** OpenTofu state is in R2, encrypted on the operator's machine before

@@ -34,6 +34,9 @@ services:
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # Required: the API refuses to start in production without it (sign-up needs email).
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: Interview App <no-reply@mail.${DOMAIN}>
     depends_on:
       db: { condition: service_healthy }
       migrate: { condition: service_completed_successfully }

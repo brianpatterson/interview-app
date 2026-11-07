@@ -39,19 +39,61 @@ export function setupTestApp() {
 
 export type TestApp = ReturnType<typeof setupTestApp>;
 
-/** Signs up a new user through the real auth endpoint and returns their session cookie. */
-export async function signUp(
-  { app }: TestApp,
+/** Finds (and removes) the most recent email sent to `to` whose subject contains `subject`. */
+export function takeEmail(t: TestApp, to: string, subject: string): Email {
+  const index = t.sentEmails.findLastIndex((e) => e.to === to && e.subject.includes(subject));
+  if (index === -1) throw new Error(`no "${subject}" email to ${to}`);
+  return t.sentEmails.splice(index, 1)[0]!;
+}
+
+/** The link in an email, as a path the test app can `inject` (the email has the public origin). */
+export function linkPath(email: Email): string {
+  const match = email.text.match(/https?:\/\/\S+/);
+  if (!match) throw new Error(`no link in email: ${email.text}`);
+  const url = new URL(match[0]);
+  return url.pathname + url.search;
+}
+
+/** Signs up through the real endpoint without verifying the email. No session yet. */
+export async function signUpUnverified(
+  t: TestApp,
   email = `user-${crypto.randomUUID()}@example.com`,
   password = 'correct horse battery',
 ) {
-  const res = await app.inject({
+  const res = await t.app.inject({
     method: 'POST',
     url: '/api/auth/sign-up/email',
     headers: { origin: env.BETTER_AUTH_URL },
     payload: { email, password, name: 'Test User' },
   });
   if (res.statusCode !== 200) throw new Error(`sign-up failed: ${res.statusCode} ${res.body}`);
-  const cookie = res.cookies.map((c) => `${c.name}=${c.value}`).join('; ');
-  return { email, password, cookie, user: res.json<{ user: { id: string } }>().user };
+  return { email, password, res };
+}
+
+/**
+ * Signs up a new user, clicks the verification link like a real user, and returns the session
+ * cookie that verification sets.
+ */
+export async function signUp(t: TestApp, email?: string, password?: string) {
+  const signedUp = await signUpUnverified(t, email, password);
+  const verify = await t.app.inject({
+    method: 'GET',
+    url: linkPath(takeEmail(t, signedUp.email, 'Confirm your email')),
+  });
+  if (verify.statusCode !== 302) {
+    throw new Error(`verification failed: ${verify.statusCode} ${verify.body}`);
+  }
+  const cookie = verify.cookies.map((c) => `${c.name}=${c.value}`).join('; ');
+  if (!cookie.includes('session_token')) throw new Error('verification did not sign in');
+  const session = await t.app.inject({
+    method: 'GET',
+    url: '/api/auth/get-session',
+    headers: { cookie },
+  });
+  return {
+    email: signedUp.email,
+    password: signedUp.password,
+    cookie,
+    user: session.json<{ user: { id: string } }>().user,
+  };
 }
