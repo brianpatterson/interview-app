@@ -44,13 +44,10 @@ terraform {
     method "aes_gcm" "state" {
       keys = key_provider.pbkdf2.state
     }
-    # Reads the old unencrypted local state during the one-time migration. Removed afterwards.
-    method "unencrypted" "migrate" {}
+    # Enforced: OpenTofu refuses to write the state unencrypted.
     state {
-      method = method.aes_gcm.state
-      fallback {
-        method = method.unencrypted.migrate
-      }
+      method   = method.aes_gcm.state
+      enforced = true
     }
     # Saved plans (tfplan) hold the same secrets.
     plan {
