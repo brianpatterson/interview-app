@@ -22,6 +22,7 @@ cloud firewall, and Cloudflare DNS. Why it looks like this:
    - `cloudflare_account_id`: same column, under **Account ID**
    - `domain`
    - `state_passphrase`: encrypts the state. Copy it from your password manager (see below).
+   - `resend_dkim_public_key`: from Resend, after adding the sending domain (see [Email](#email)).
 4. Credentials for the state bucket, in `~/.aws/credentials` (see below).
 
 ## State
@@ -217,6 +218,47 @@ shred -u /tmp/app.dump
 Then delete `app.dump`, `app.dump.age` and any `backups.agekey` you saved from the password manager. If the restored data is from an older schema,
 redeploy the release that matches it, or let the next deploy migrate it forward.
 
+## Email
+
+The API sends password resets and sign-up confirmations through [Resend](https://resend.com),
+from `no-reply@mail.<domain>` ([ADR-0017](../docs/adr/0017-email-resend.md)). OpenTofu owns the
+DNS records (`email.tf`). The API key lives only in the server's `.env`.
+
+**Cost:** $0 on Resend's free plan (3,000 emails a month, 100 a day, one domain). The next plan
+is $20/month for 50,000.
+
+### One-time setup
+
+Do these in order. If the app is deployed before step 4, the new API refuses to start without a
+key, the health check fails, and the deploy rolls back to the previous version. Nothing breaks,
+but the deploy shows as failed.
+
+1. **Add the domain in Resend.** Sign up at resend.com → **Domains** → **Add domain** →
+   `mail.<domain>`, region **North Virginia (us-east-1)**. Don't click **Auto configure**: OpenTofu
+   creates the records. Copy the value of the `resend._domainkey.mail` TXT record (starts with
+   `p=`).
+2. **Create the DNS records.** Put that value in `terraform.tfvars` as `resend_dkim_public_key`,
+   then plan and apply. Expect 4 records to add (DKIM, bounce MX, SPF, DMARC) and nothing else:
+
+   ```bash
+   tofu plan -out=tfplan && tofu apply tfplan
+   ```
+
+3. **Verify.** Resend → the domain → **Verify DNS records**. Usually a few minutes.
+4. **Create the API key and put it on the server.** Resend → **API Keys** → **Create**,
+   permission **Sending access**, domain `mail.<domain>`. Then paste it at the prompt (it isn't
+   echoed or saved in shell history):
+
+   ```bash
+   ssh -t ops@$(tofu output -raw ipv4) 'read -rsp "Resend API key: " k && echo && printf "RESEND_API_KEY=%s\n" "$k" >> /opt/interview-app/.env && echo "✓ added"'
+   ```
+
+5. **Deploy** (merge the PR, or re-run the last deploy). Sign up with a real address to check
+   that the confirmation email arrives, and look at its headers: `dkim=pass` and `dmarc=pass`.
+
+To rotate the key: create a new one, replace the `RESEND_API_KEY=` line in `.env` on the server,
+redeploy, then delete the old key in Resend.
+
 ## Things that replace the droplet
 
 Changing `cloud-init.yaml.tftpl`, `droplet_size`, `region` or the image **replaces** the droplet.
@@ -226,13 +268,15 @@ the app.
 
 ## Runbook
 
-| Situation                     | Do this                                                                                                                                      |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Droplet is unreachable        | DigitalOcean console → droplet → **Recovery Console** (out-of-band), check status; or `tofu apply -replace=digitalocean_droplet.app`         |
-| Out of memory                 | Check `free -h` and `docker stats`; then `droplet_size = "s-1vcpu-2gb"` and `tofu apply` (replaces the droplet)                              |
-| Disk full on `/srv/data`      | Raise `data_volume_size`, `tofu apply`, then `sudo resize2fs /dev/disk/by-id/scsi-0DO_Volume_interview-app-data`                             |
-| Rotate the DigitalOcean token | Generate a new token, update `terraform.tfvars`, revoke the old one                                                                          |
-| Backup run failed             | Open the run's log. SSH or R2 errors: check the `backups` environment secrets. Restore check failed: the backup is unusable, so fix it today |
-| Tear everything down          | `tofu destroy` refuses because the volume and buckets have `prevent_destroy`. Remove those lines deliberately if you really mean it          |
+| Situation                                  | Do this                                                                                                                                                                                                                        |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Droplet is unreachable                     | DigitalOcean console → droplet → **Recovery Console** (out-of-band), check status; or `tofu apply -replace=digitalocean_droplet.app`                                                                                           |
+| Out of memory                              | Check `free -h` and `docker stats`; then `droplet_size = "s-1vcpu-2gb"` and `tofu apply` (replaces the droplet)                                                                                                                |
+| Disk full on `/srv/data`                   | Raise `data_volume_size`, `tofu apply`, then `sudo resize2fs /dev/disk/by-id/scsi-0DO_Volume_interview-app-data`                                                                                                               |
+| Rotate the DigitalOcean token              | Generate a new token, update `terraform.tfvars`, revoke the old one                                                                                                                                                            |
+| Backup run failed                          | Open the run's log. SSH or R2 errors: check the `backups` environment secrets. Restore check failed: the backup is unusable, so fix it today                                                                                   |
+| `daily email limit reached` in the API log | 80 emails in 24 hours: an attack or real growth. Check `select kind, count(*) from email_sends where sent_at > now() - interval '1 day' group by 1`. Real users: upgrade Resend, set `EMAIL_LIMIT_PER_DAY` in `.env`, redeploy |
+| Emails not arriving                        | Resend → **Emails** shows each send and why it bounced. Not listed: check the API log for `Resend rejected the email`. Spam: check DKIM/DMARC pass in the headers                                                              |
+| Tear everything down                       | `tofu destroy` refuses because the volume and buckets have `prevent_destroy`. Remove those lines deliberately if you really mean it                                                                                            |
 
 Past incidents and what they taught us are in [docs/incidents/](../docs/incidents/).

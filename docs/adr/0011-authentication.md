@@ -45,7 +45,8 @@ by the session's user, and other users' rows return 404.
 - **Testing gotcha:** Better Auth disables its CSRF origin check when `NODE_ENV=test`. The config
   sets `advanced.disableOriginCheck: false` explicitly, and a test asserts a cross-origin
   cookie-bearing request gets 403.
-- Emails are logged rather than sent until production. The mailer is an interface (`SendEmail`),
+- _Update 2026-11-06: [ADR-0017](0017-email-resend.md) added Resend and turned on required
+  email verification._ Emails are logged rather than sent until production. The mailer is an interface (`SendEmail`),
   so swapping in Resend or Postmark touches only one file. **Email verification is not required
   yet.** Turn on `requireEmailVerification` together with the real email provider; until then,
   account linking only trusts the providers' verified emails.
