@@ -1,7 +1,11 @@
 import type { FastifyBaseLogger } from 'fastify';
 import type { Env } from './env.js';
 
+/** Limits are counted per kind, so verification retries never block a password reset. */
+export type EmailKind = 'password-reset' | 'verification';
+
 export interface Email {
+  kind: EmailKind;
   to: string;
   subject: string;
   text: string;

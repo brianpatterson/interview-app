@@ -47,7 +47,7 @@ export function SignInPage() {
     setPending(false);
     if (result.error) {
       if (result.error.code === 'EMAIL_NOT_VERIFIED') {
-        return setNotice(`Confirm your email first. We've sent a new link to ${email}.`);
+        return setNotice(`Confirm your email first: check ${email} (and spam) for the link.`);
       }
       return setError(result.error.message ?? 'Something went wrong');
     }

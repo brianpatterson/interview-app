@@ -193,6 +193,10 @@ sequenceDiagram
   through Resend from `mail.<domain>`, signed with DKIM under a DMARC `quarantine` policy. In
   development they're written to the API log instead ([ADR-0017](adr/0017-email-resend.md)).
 - **Password reset** signs out every other session.
+- **Email abuse:** at most 5 reset or verification requests and 10 sign-ups per IP per hour
+  (Better Auth, in memory), then at most 3 emails of each kind per address and 80 in total per
+  24 hours (Postgres, survives deploys). Over a limit the email is silently dropped
+  ([ADR-0018](adr/0018-email-sending-limits.md)).
 
 ## 7. Environments and delivery
 

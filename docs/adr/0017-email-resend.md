@@ -68,8 +68,8 @@ How the API talks to Resend:
   email's delivery status when someone says it didn't.
 - **A new external dependency on the sign-up path.** If Resend is down, new users can't finish
   signing up and nobody can reset a password. Existing sessions and sign-ins keep working.
-- **Limits:** 100 emails a day on the free plan. A burst of sign-ups beyond that fails until the
-  next day. Revisit (Pro at $20/month) if the app gets real traffic.
+- **Limits:** 100 emails a day on the free plan. [ADR-0018](0018-email-sending-limits.md) caps
+  our own sending below that. Revisit (Pro at $20/month) if the app gets real traffic.
 - **Existing accounts** were created unverified. Their current sessions keep working; on the
   next sign-in they're asked to confirm their email once.
 - **Revisit when:** volume or deliverability becomes a problem (→ Postmark or SES), or a second

@@ -32,6 +32,7 @@ export function createAuth(db: Db, env: Env, sendEmail: SendEmail) {
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url }) => {
         await sendEmail({
+          kind: 'password-reset',
           to: user.email,
           subject: 'Reset your Interview App password',
           text: `Reset your password: ${url}\n\nIf you didn't ask for this, ignore this email.`,
@@ -46,6 +47,7 @@ export function createAuth(db: Db, env: Env, sendEmail: SendEmail) {
       autoSignInAfterVerification: true,
       sendVerificationEmail: async ({ user, url }) => {
         await sendEmail({
+          kind: 'verification',
           to: user.email,
           subject: 'Confirm your email for Interview App',
           text: `Confirm your email to finish signing up: ${url}\n\nThe link expires in 1 hour. If you didn't sign up, ignore this email.`,
@@ -66,6 +68,16 @@ export function createAuth(db: Db, env: Env, sendEmail: SendEmail) {
     // Better Auth silently disables its CSRF origin check when NODE_ENV=test. Force it on so the
     // test suite exercises the same protection as production.
     advanced: { disableOriginCheck: false },
+    // Per client IP, in memory, production only (Better Auth's defaults are per minute, which
+    // still allows thousands of emails a day from one machine). email-limits.ts adds per-address
+    // and daily caps that survive restarts. ADR-0018.
+    rateLimit: {
+      customRules: {
+        '/request-password-reset': { window: 3600, max: 5 },
+        '/send-verification-email': { window: 3600, max: 5 },
+        '/sign-up/email': { window: 3600, max: 10 },
+      },
+    },
     telemetry: { enabled: false },
   });
 }

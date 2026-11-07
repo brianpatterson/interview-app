@@ -268,14 +268,15 @@ the app.
 
 ## Runbook
 
-| Situation                     | Do this                                                                                                                                                           |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Droplet is unreachable        | DigitalOcean console → droplet → **Recovery Console** (out-of-band), check status; or `tofu apply -replace=digitalocean_droplet.app`                              |
-| Out of memory                 | Check `free -h` and `docker stats`; then `droplet_size = "s-1vcpu-2gb"` and `tofu apply` (replaces the droplet)                                                   |
-| Disk full on `/srv/data`      | Raise `data_volume_size`, `tofu apply`, then `sudo resize2fs /dev/disk/by-id/scsi-0DO_Volume_interview-app-data`                                                  |
-| Rotate the DigitalOcean token | Generate a new token, update `terraform.tfvars`, revoke the old one                                                                                               |
-| Backup run failed             | Open the run's log. SSH or R2 errors: check the `backups` environment secrets. Restore check failed: the backup is unusable, so fix it today                      |
-| Emails not arriving           | Resend → **Emails** shows each send and why it bounced. Not listed: check the API log for `Resend rejected the email`. Spam: check DKIM/DMARC pass in the headers |
-| Tear everything down          | `tofu destroy` refuses because the volume and buckets have `prevent_destroy`. Remove those lines deliberately if you really mean it                               |
+| Situation                                  | Do this                                                                                                                                                                                                                        |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Droplet is unreachable                     | DigitalOcean console → droplet → **Recovery Console** (out-of-band), check status; or `tofu apply -replace=digitalocean_droplet.app`                                                                                           |
+| Out of memory                              | Check `free -h` and `docker stats`; then `droplet_size = "s-1vcpu-2gb"` and `tofu apply` (replaces the droplet)                                                                                                                |
+| Disk full on `/srv/data`                   | Raise `data_volume_size`, `tofu apply`, then `sudo resize2fs /dev/disk/by-id/scsi-0DO_Volume_interview-app-data`                                                                                                               |
+| Rotate the DigitalOcean token              | Generate a new token, update `terraform.tfvars`, revoke the old one                                                                                                                                                            |
+| Backup run failed                          | Open the run's log. SSH or R2 errors: check the `backups` environment secrets. Restore check failed: the backup is unusable, so fix it today                                                                                   |
+| `daily email limit reached` in the API log | 80 emails in 24 hours: an attack or real growth. Check `select kind, count(*) from email_sends where sent_at > now() - interval '1 day' group by 1`. Real users: upgrade Resend, set `EMAIL_LIMIT_PER_DAY` in `.env`, redeploy |
+| Emails not arriving                        | Resend → **Emails** shows each send and why it bounced. Not listed: check the API log for `Resend rejected the email`. Spam: check DKIM/DMARC pass in the headers                                                              |
+| Tear everything down                       | `tofu destroy` refuses because the volume and buckets have `prevent_destroy`. Remove those lines deliberately if you really mean it                                                                                            |
 
 Past incidents and what they taught us are in [docs/incidents/](../docs/incidents/).

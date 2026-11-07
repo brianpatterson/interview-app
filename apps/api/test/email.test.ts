@@ -16,6 +16,7 @@ describe('resendMailer', () => {
       'App <no-reply@mail.example.com>',
       fetchMock,
     )({
+      kind: 'verification',
       to: 'a@example.com',
       subject: 'Hi',
       text: 'Body',
@@ -36,7 +37,11 @@ describe('resendMailer', () => {
       async () => new Response('{"message":"domain not verified"}', { status: 403 }),
     );
     await expect(
-      resendMailer('re_test', 'x@example.com', fetchMock)({ to: 'a@b.c', subject: 's', text: 't' }),
+      resendMailer(
+        're_test',
+        'x@example.com',
+        fetchMock,
+      )({ kind: 'verification', to: 'a@b.c', subject: 's', text: 't' }),
     ).rejects.toThrow(/HTTP 403.*domain not verified/);
   });
 });

@@ -3,7 +3,7 @@ import { buildApp } from '../src/app.js';
 import { createDb } from '../src/db/index.js';
 import { runMigrations } from '../src/db/migrate.js';
 import type { Email } from '../src/email.js';
-import { loadEnv } from '../src/env.js';
+import { loadEnv, type Env } from '../src/env.js';
 
 export const env = loadEnv({
   DATABASE_URL: process.env.TEST_DATABASE_URL ?? 'postgres://app:app@localhost:5432/app_test',
@@ -11,15 +11,19 @@ export const env = loadEnv({
   BETTER_AUTH_URL: 'http://localhost:5173',
 });
 
-export function setupTestApp() {
+export function setupTestApp(overrides: Partial<Env> = {}) {
   const { db, pool } = createDb(env.DATABASE_URL);
   const sentEmails: Email[] = [];
-  const app = buildApp(db, env, {
-    logger: false,
-    sendEmail: async (email) => {
-      sentEmails.push(email);
+  const app = buildApp(
+    db,
+    { ...env, ...overrides },
+    {
+      logger: false,
+      sendEmail: async (email) => {
+        sentEmails.push(email);
+      },
     },
-  });
+  );
 
   return {
     app,
@@ -28,7 +32,9 @@ export function setupTestApp() {
     migrate: () => runMigrations(db),
     reset: async () => {
       sentEmails.length = 0;
-      await db.execute(sql`truncate table applications, sessions, accounts, verifications, users`);
+      await db.execute(
+        sql`truncate table applications, sessions, accounts, verifications, users, email_sends`,
+      );
     },
     close: async () => {
       await app.close();
