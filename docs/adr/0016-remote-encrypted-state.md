@@ -43,7 +43,7 @@ Terraform doesn't have): AES-GCM with a key derived from a passphrase (PBKDF2).
   `state_passphrase` (password manager plus `terraform.tfvars`). Plans are `enforced`, so an
   unencrypted plan file is refused.
 - **Migration:** a temporary `unencrypted` fallback method reads the old local state during
-  `tofu init -migrate-state`. It's removed in a follow-up PR.
+  `tofu init -migrate-state`. It was removed once the migration was done, and state encryption is now `enforced`.
 - **CI:** `test-cloud-init.sh` renders the template with `tofu console` in an empty directory,
   so CI never needs the backend, credentials or passphrase.
 
