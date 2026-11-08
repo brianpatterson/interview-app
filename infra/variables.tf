@@ -60,3 +60,13 @@ variable "state_passphrase" {
   type        = string
   sensitive   = true
 }
+
+variable "resend_dkim_public_key" {
+  description = "Value of the resend._domainkey TXT record Resend shows after adding mail.<domain> (starts with p=)."
+  type        = string
+
+  validation {
+    condition     = startswith(var.resend_dkim_public_key, "p=")
+    error_message = "Paste the DKIM TXT value from Resend, starting with p=."
+  }
+}

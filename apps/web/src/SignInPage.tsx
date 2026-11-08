@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { authClient } from './auth-client';
 
@@ -11,9 +11,19 @@ export function SignInPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  // A bad or expired verification link lands on /?error=… (set by the API's redirect).
+  const [error, setError] = useState<string | null>(() =>
+    new URLSearchParams(window.location.search).has('error')
+      ? 'That confirmation link is invalid or has expired. Sign in to get a new one.'
+      : null,
+  );
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    // Drop ?error=… from the address bar so a reload doesn't show it again.
+    if (window.location.search) window.history.replaceState(null, '', window.location.pathname);
+  }, []);
 
   const config = useQuery({
     queryKey: ['auth-config'],
@@ -32,10 +42,19 @@ export function SignInPage() {
       mode === 'sign-in'
         ? await authClient.signIn.email({ email, password })
         : mode === 'sign-up'
-          ? await authClient.signUp.email({ email, password, name })
+          ? await authClient.signUp.email({ email, password, name, callbackURL: '/' })
           : await authClient.requestPasswordReset({ email, redirectTo: '/reset-password' });
     setPending(false);
-    if (result.error) return setError(result.error.message ?? 'Something went wrong');
+    if (result.error) {
+      if (result.error.code === 'EMAIL_NOT_VERIFIED') {
+        return setNotice(`Confirm your email first: check ${email} (and spam) for the link.`);
+      }
+      return setError(result.error.message ?? 'Something went wrong');
+    }
+    if (mode === 'sign-up') {
+      setPassword('');
+      setNotice(`Check ${email} for a link to finish creating your account.`);
+    }
     if (mode === 'forgot') setNotice('If that email has an account, a reset link is on its way.');
   }
 
