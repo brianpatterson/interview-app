@@ -11,6 +11,5 @@ resend_dkim_public_key = "p=..."
 
 # Optional overrides:
 # region                    = "nyc3"
-# resend_region             = "us-east-1"
 # droplet_size              = "s-1vcpu-1gb"
 # admin_ssh_public_key_path = "~/.ssh/id_ed25519.pub"

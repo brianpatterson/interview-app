@@ -19,23 +19,29 @@ resource "cloudflare_dns_record" "resend_dkim" {
   ttl     = 3600
 }
 
-# Bounce and complaint handling: Resend (Amazon SES underneath) uses send.mail.<domain> as the
-# envelope sender (Return-Path), so bounces come back to it here.
-resource "cloudflare_dns_record" "resend_bounce_mx" {
-  zone_id  = var.cloudflare_zone_id
-  name     = "send.${local.mail_domain}"
-  type     = "MX"
-  content  = "feedback-smtp.${var.resend_region}.amazonses.com"
-  priority = 10
-  ttl      = 3600
-}
-
-# SPF for that envelope sender: only Amazon SES may send as send.mail.<domain>.
-resource "cloudflare_dns_record" "resend_spf" {
+# Return-Path (bounces and SPF): Resend's own sending infrastructure ("Forge"), which replaced the
+# older Amazon SES MX + SPF records for new domains. A CNAME can't share its name with any other
+# record, so these replace those. Targets as shown in Resend → Domains → mail.<domain>.
+resource "cloudflare_dns_record" "resend_send" {
   zone_id = var.cloudflare_zone_id
   name    = "send.${local.mail_domain}"
-  type    = "TXT"
-  content = "\"v=spf1 include:amazonses.com ~all\""
+  type    = "CNAME"
+  content = "send.forge.rmta.net"
+  proxied = false
+  ttl     = 3600
+}
+
+moved {
+  from = cloudflare_dns_record.resend_bounce_mx
+  to   = cloudflare_dns_record.resend_send
+}
+
+resource "cloudflare_dns_record" "resend_rsend" {
+  zone_id = var.cloudflare_zone_id
+  name    = "rsend.${local.mail_domain}"
+  type    = "CNAME"
+  content = "rsend.forge.rmta.net"
+  proxied = false
   ttl     = 3600
 }
 

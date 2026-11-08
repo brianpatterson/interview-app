@@ -14,7 +14,7 @@ could sign up with a victim's address first and have the victim's later OAuth si
 their account. Better Auth guards against this, but requiring verification closes it entirely.
 
 Sending mail that actually arrives (not in spam) needs a provider with a good sending reputation
-and three DNS records: SPF, DKIM and DMARC.
+and DNS records for SPF, DKIM and DMARC.
 
 ## Options considered
 
@@ -44,8 +44,9 @@ How the API talks to Resend:
 - **Sending domain:** `mail.<domain>`, From `Interview App <no-reply@mail.<domain>>`. Resend
   recommends a subdomain: its sending reputation is separate from the apex, which stays free
   for other mail later (for example a personal inbox).
-- **DNS, in OpenTofu (`infra/email.tf`):** the DKIM key Resend issues, a bounce MX and SPF
-  record on `send.mail.<domain>`, and a DMARC policy of `quarantine` for the whole domain.
+- **DNS, in OpenTofu (`infra/email.tf`):** the DKIM key Resend issues, two CNAMEs
+  (`send.mail` and `rsend.mail`) that hand the Return-Path, and with it bounces and SPF, to
+  Resend's own sending infrastructure, and a DMARC policy of `quarantine` for the whole domain.
   `quarantine` rather than the usual starting point `none`, because nothing else sends as this
   domain: anything that fails is spoofed. No `rua` (aggregate report) address, since that needs a
   mailbox to receive and read them.
@@ -72,6 +73,8 @@ How the API talks to Resend:
   our own sending below that. Revisit (Pro at $20/month) if the app gets real traffic.
 - **Existing accounts** were created unverified. Their current sessions keep working; on the
   next sign-in they're asked to confirm their email once.
+- _Update 2026-11-07: Resend's dashboard asked for the two CNAMEs instead of the Amazon SES MX
+  and SPF records its docs described at the time. The dashboard is the source of truth._
 - **Revisit when:** volume or deliverability becomes a problem (→ Postmark or SES), or a second
   kind of email (notifications, digests) needs HTML templates (→ React Email, which Resend
   supports natively).

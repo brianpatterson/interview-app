@@ -234,11 +234,12 @@ key, the health check fails, and the deploy rolls back to the previous version. 
 but the deploy shows as failed.
 
 1. **Add the domain in Resend.** Sign up at resend.com → **Domains** → **Add domain** →
-   `mail.<domain>`, region **North Virginia (us-east-1)**. Don't click **Auto configure**: OpenTofu
+   `mail.<domain>`, region **North Virginia (us-east-1)**, the closest to the server. Don't click **Auto configure**: OpenTofu
    creates the records. Copy the value of the `resend._domainkey.mail` TXT record (starts with
    `p=`).
 2. **Create the DNS records.** Put that value in `terraform.tfvars` as `resend_dkim_public_key`,
-   then plan and apply. Expect 4 records to add (DKIM, bounce MX, SPF, DMARC) and nothing else:
+   then plan and apply. Expect 4 records to add (DKIM, the `send` and `rsend` CNAMEs, DMARC) and nothing else. If Resend's
+   dashboard shows different CNAME targets, update them in `email.tf` first:
 
    ```bash
    tofu plan -out=tfplan && tofu apply tfplan

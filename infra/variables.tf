@@ -70,9 +70,3 @@ variable "resend_dkim_public_key" {
     error_message = "Paste the DKIM TXT value from Resend, starting with p=."
   }
 }
-
-variable "resend_region" {
-  description = "Resend sending region chosen when adding the domain (sets the bounce MX host)."
-  type        = string
-  default     = "us-east-1"
-}
