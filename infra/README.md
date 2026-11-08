@@ -80,7 +80,7 @@ re-import every resource).
    rm terraform.tfstate terraform.tfstate.backup
    ```
 
-5. The follow-up PR removes the `unencrypted` migration fallback from `versions.tf`.
+5. A follow-up PR removed the `unencrypted` migration fallback from `versions.tf`.
 
 ## Create or update the infrastructure
 
