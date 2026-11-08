@@ -19,6 +19,8 @@ POSTGRES_PASSWORD=$(openssl rand -hex 24)
 BETTER_AUTH_SECRET=$(openssl rand -base64 32)
 # Resend API key with sending access to mail.$domain (required; see infra/README.md, Email)
 RESEND_API_KEY=
+# Sentry project DSN (optional; see infra/README.md, Monitoring)
+SENTRY_DSN=
 # OAuth apps registered for https://$domain (optional). Callback: https://$domain/api/auth/callback/<provider>
 GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=

@@ -14,6 +14,10 @@ terraform {
       source  = "hashicorp/tls"
       version = "~> 4.0"
     }
+    betteruptime = {
+      source  = "BetterStackHQ/better-uptime"
+      version = "~> 0.22"
+    }
   }
 
   # State lives in R2, encrypted on this machine before upload, so neither Cloudflare nor anyone
@@ -63,4 +67,8 @@ provider "digitalocean" {
 
 provider "cloudflare" {
   api_token = var.cloudflare_api_token
+}
+
+provider "betteruptime" {
+  api_token = var.betterstack_api_token
 }

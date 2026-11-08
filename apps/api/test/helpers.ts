@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import { buildApp } from '../src/app.js';
 import { createDb } from '../src/db/index.js';
 import { runMigrations } from '../src/db/migrate.js';
-import type { Email } from '../src/email.js';
+import type { Email, SendEmail } from '../src/email.js';
 import { loadEnv, type Env } from '../src/env.js';
 
 export const env = loadEnv({
@@ -11,7 +11,11 @@ export const env = loadEnv({
   BETTER_AUTH_URL: 'http://localhost:5173',
 });
 
-export function setupTestApp(overrides: Partial<Env> = {}) {
+/**
+ * A test app on the test database. Emails are captured in `sentEmails`; pass `sendEmail` to
+ * replace that (e.g. with one that throws).
+ */
+export function setupTestApp(overrides: Partial<Env> = {}, sendEmail?: SendEmail) {
   const { db, pool } = createDb(env.DATABASE_URL);
   const sentEmails: Email[] = [];
   const app = buildApp(
@@ -19,9 +23,11 @@ export function setupTestApp(overrides: Partial<Env> = {}) {
     { ...env, ...overrides },
     {
       logger: false,
-      sendEmail: async (email) => {
-        sentEmails.push(email);
-      },
+      sendEmail:
+        sendEmail ??
+        (async (email) => {
+          sentEmails.push(email);
+        }),
     },
   );
 

@@ -240,7 +240,10 @@ flowchart LR
   ([ADR-0015](adr/0015-backups.md)).
 - **Email:** Resend's HTTP API, from `no-reply@mail.<domain>`. The API refuses to start in
   production without its key ([ADR-0017](adr/0017-email-resend.md)).
-- **Not yet:** monitoring ([roadmap](roadmap.md), phase 2).
+- **Monitoring:** Better Stack checks `/api/health` (must report the database up) every 3
+  minutes from outside, and expects a ping from every nightly backup. Sentry receives unexpected
+  API errors, failed email sends and the daily-email-limit alarm, with cookies, bodies and query
+  strings stripped ([ADR-0019](adr/0019-monitoring-and-error-tracking.md)).
 - **Disposable server:** IPs and the data volume are separate OpenTofu resources, so the server
   can be replaced at any time ([infra/README.md](../infra/README.md)).
 - **Infrastructure state:** OpenTofu state is in R2, encrypted on the operator's machine before

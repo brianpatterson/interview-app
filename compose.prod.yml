@@ -37,6 +37,9 @@ services:
       # Required: the API refuses to start in production without it (sign-up needs email).
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       EMAIL_FROM: Interview App <no-reply@mail.${DOMAIN}>
+      # Error tracking (ADR-0019). Optional: blank leaves Sentry off.
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_RELEASE: ${API_IMAGE:-local}
       # Optional overrides of the sending limits (defaults 3 and 80; ADR-0018).
       EMAIL_LIMIT_PER_ADDRESS: ${EMAIL_LIMIT_PER_ADDRESS:-}
       EMAIL_LIMIT_PER_DAY: ${EMAIL_LIMIT_PER_DAY:-}

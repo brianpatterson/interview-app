@@ -1,4 +1,5 @@
 import { betterAuth } from 'better-auth';
+import { APIError } from 'better-auth/api';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import type { Db } from './db/index.js';
 import { accounts, sessions, users, verifications } from './db/schema.js';
@@ -14,7 +15,12 @@ export function enabledProviders(env: Env): AuthProvider[] {
   return providers;
 }
 
-export function createAuth(db: Db, env: Env, sendEmail: SendEmail) {
+export function createAuth(
+  db: Db,
+  env: Env,
+  sendEmail: SendEmail,
+  onUnexpectedError: (error: unknown) => void = () => {},
+) {
   return betterAuth({
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
@@ -76,6 +82,16 @@ export function createAuth(db: Db, env: Env, sendEmail: SendEmail) {
         '/request-password-reset': { window: 3600, max: 5 },
         '/send-verification-email': { window: 3600, max: 5 },
         '/sign-up/email': { window: 3600, max: 10 },
+      },
+    },
+    // Better Auth catches errors from its endpoints (and from our email callbacks) and answers
+    // with an error response, so they never reach Fastify's error handler. Report the unexpected
+    // ones; 4xx (wrong password, expired token) are normal traffic. Replaces Better Auth's own
+    // error logging, so the callback logs too.
+    onAPIError: {
+      onError: (error) => {
+        if (error instanceof APIError && error.statusCode < 500) return;
+        onUnexpectedError(error);
       },
     },
     telemetry: { enabled: false },

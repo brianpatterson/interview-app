@@ -260,6 +260,43 @@ but the deploy shows as failed.
 To rotate the key: create a new one, replace the `RESEND_API_KEY=` line in `.env` on the server,
 redeploy, then delete the old key in Resend.
 
+## Monitoring
+
+Better Stack watches the site and the backups from outside; Sentry collects API errors
+([ADR-0019](../docs/adr/0019-monitoring-and-error-tracking.md)). Both email the account owner.
+**Cost:** $0 on both free plans (Better Stack: 10 monitors, 10 heartbeats; Sentry: 5,000 errors a
+month).
+
+### One-time setup
+
+1. **Better Stack.** Sign up at betterstack.com → **Uptime**. Then **Settings → API tokens** →
+   copy the **Uptime** token into `terraform.tfvars` as `betterstack_api_token`, and plan and
+   apply. Expect 2 resources to add (the monitor and the heartbeat) and nothing else:
+
+   ```bash
+   tofu plan -out=tfplan && tofu apply tfplan
+   ```
+
+2. **Connect the backup workflow to the heartbeat.** This pipes the URL straight into the secret
+   without printing it:
+
+   ```bash
+   tofu output -raw backup_heartbeat_url | gh secret set BACKUP_HEARTBEAT_URL --env backups
+   ```
+
+   Then run the backup once by hand (**Actions → Backup → Run workflow**) and check that the
+   heartbeat in Better Stack turns green.
+
+3. **Sentry.** Sign up at sentry.io (Developer plan) → **Create project** → platform **Node.js**,
+   alert frequency **on every new issue**. Copy the **DSN**, then add it to the server the same
+   way as the Resend key:
+
+   ```bash
+   ssh -t ops@$(tofu output -raw ipv4) 'read -rsp "Sentry DSN: " k && echo && printf "SENTRY_DSN=%s\n" "$k" >> /opt/interview-app/.env && echo "✓ added"'
+   ```
+
+   It takes effect on the next deploy.
+
 ## Things that replace the droplet
 
 Changing `cloud-init.yaml.tftpl`, `droplet_size`, `region` or the image **replaces** the droplet.
@@ -269,15 +306,18 @@ the app.
 
 ## Runbook
 
-| Situation                                  | Do this                                                                                                                                                                                                                        |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Droplet is unreachable                     | DigitalOcean console → droplet → **Recovery Console** (out-of-band), check status; or `tofu apply -replace=digitalocean_droplet.app`                                                                                           |
-| Out of memory                              | Check `free -h` and `docker stats`; then `droplet_size = "s-1vcpu-2gb"` and `tofu apply` (replaces the droplet)                                                                                                                |
-| Disk full on `/srv/data`                   | Raise `data_volume_size`, `tofu apply`, then `sudo resize2fs /dev/disk/by-id/scsi-0DO_Volume_interview-app-data`                                                                                                               |
-| Rotate the DigitalOcean token              | Generate a new token, update `terraform.tfvars`, revoke the old one                                                                                                                                                            |
-| Backup run failed                          | Open the run's log. SSH or R2 errors: check the `backups` environment secrets. Restore check failed: the backup is unusable, so fix it today                                                                                   |
-| `daily email limit reached` in the API log | 80 emails in 24 hours: an attack or real growth. Check `select kind, count(*) from email_sends where sent_at > now() - interval '1 day' group by 1`. Real users: upgrade Resend, set `EMAIL_LIMIT_PER_DAY` in `.env`, redeploy |
-| Emails not arriving                        | Resend → **Emails** shows each send and why it bounced. Not listed: check the API log for `Resend rejected the email`. Spam: check DKIM/DMARC pass in the headers                                                              |
-| Tear everything down                       | `tofu destroy` refuses because the volume and buckets have `prevent_destroy`. Remove those lines deliberately if you really mean it                                                                                            |
+| Situation                                       | Do this                                                                                                                                                                                                                        |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Droplet is unreachable                          | DigitalOcean console → droplet → **Recovery Console** (out-of-band), check status; or `tofu apply -replace=digitalocean_droplet.app`                                                                                           |
+| Out of memory                                   | Check `free -h` and `docker stats`; then `droplet_size = "s-1vcpu-2gb"` and `tofu apply` (replaces the droplet)                                                                                                                |
+| Disk full on `/srv/data`                        | Raise `data_volume_size`, `tofu apply`, then `sudo resize2fs /dev/disk/by-id/scsi-0DO_Volume_interview-app-data`                                                                                                               |
+| Rotate the DigitalOcean token                   | Generate a new token, update `terraform.tfvars`, revoke the old one                                                                                                                                                            |
+| Backup run failed                               | Open the run's log. SSH or R2 errors: check the `backups` environment secrets. Restore check failed: the backup is unusable, so fix it today                                                                                   |
+| `daily email limit reached` in the API log      | 80 emails in 24 hours: an attack or real growth. Check `select kind, count(*) from email_sends where sent_at > now() - interval '1 day' group by 1`. Real users: upgrade Resend, set `EMAIL_LIMIT_PER_DAY` in `.env`, redeploy |
+| Better Stack: site down                         | Open the incident for the failing check. Then `ssh ops@<ipv4>` and `docker compose -f compose.prod.yml --env-file .env ps`, and the API logs (above). `"db":"down"` means Postgres is the problem                              |
+| Better Stack: backup heartbeat missed or failed | Open the latest **Backup** run in GitHub Actions. No run at all: check the workflow isn't disabled (60 days without commits) and run it by hand                                                                                |
+| Sentry: new issue                               | The issue shows the stack trace and the release (image tag). `Email send failed`: check Resend → **Emails** and the API key. `Daily email limit reached`: see the `daily email limit reached` row                              |
+| Emails not arriving                             | Resend → **Emails** shows each send and why it bounced. Not listed: check the API log for `Resend rejected the email`. Spam: check DKIM/DMARC pass in the headers                                                              |
+| Tear everything down                            | `tofu destroy` refuses because the volume and buckets have `prevent_destroy`. Remove those lines deliberately if you really mean it                                                                                            |
 
 Past incidents and what they taught us are in [docs/incidents/](../docs/incidents/).

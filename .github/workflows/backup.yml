@@ -31,6 +31,8 @@ jobs:
       AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
       R2_ENDPOINT: ${{ vars.R2_ENDPOINT }}
       R2_BUCKET: ${{ vars.R2_BUCKET }}
+      # Better Stack heartbeat (ADR-0019). Optional: the last step is skipped until it's set.
+      BACKUP_HEARTBEAT_URL: ${{ secrets.BACKUP_HEARTBEAT_URL }}
     steps:
       - uses: actions/checkout@v7
 
@@ -80,3 +82,17 @@ jobs:
             AGE_IDENTITY_FILE="$RUNNER_TEMP/age.key" EXPECTED_MIGRATIONS=$(cat live-migrations) \
               deploy/verify-backup.sh restored.dump.age
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # Dead man's switch: success resets Better Stack's 36-hour timer; failure alerts right away.
+      # A run that never happens (GitHub outage, workflow disabled) alerts when the timer runs out.
+      - name: Report to the heartbeat monitor
+        if: always() && env.BACKUP_HEARTBEAT_URL != ''
+        env:
+          OUTCOME: ${{ job.status }}
+        run: |
+          if [ "$OUTCOME" = success ]; then
+            curl -fsS --max-time 10 --retry 3 -o /dev/null "$BACKUP_HEARTBEAT_URL"
+          else
+            # Best effort: if this fails too, the missing success ping still raises the alarm.
+            curl -fsS --max-time 10 --retry 3 -o /dev/null "$BACKUP_HEARTBEAT_URL/fail" || true
+          fi
