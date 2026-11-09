@@ -3,6 +3,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { Db } from './db/index.js';
 import { emailSends } from './db/schema.js';
 import type { SendEmail } from './email.js';
+import { Sentry } from './error-tracking.js';
 
 export interface EmailLimits {
   /** Emails of one kind (e.g. password reset) to one address in any 24 hours. */
@@ -56,6 +57,11 @@ export function limitedMailer(
         { kind: email.kind, limit: limits.perDay },
         'Email not sent: daily email limit reached',
       );
+      // Grouped into one Sentry issue, which emails on the first occurrence.
+      Sentry.captureMessage('Daily email limit reached', {
+        level: 'error',
+        extra: { kind: email.kind, limit: limits.perDay },
+      });
       return;
     }
     if (verdict === 'address limit') {
@@ -65,6 +71,14 @@ export function limitedMailer(
       );
       return;
     }
-    await send(email);
+    try {
+      await send(email);
+    } catch (error) {
+      // Better Auth swallows errors from email callbacks (it only console-logs them) and still
+      // tells the user "check your email", so this is the one place a failed send is visible.
+      log.error({ err: error, kind: email.kind }, 'Email send failed');
+      Sentry.captureException(error, { tags: { emailKind: email.kind } });
+      throw error;
+    }
   };
 }

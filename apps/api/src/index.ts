@@ -1,8 +1,10 @@
 import { buildApp } from './app.js';
 import { createDb } from './db/index.js';
 import { loadEnv } from './env.js';
+import { initErrorTracking, Sentry } from './error-tracking.js';
 
 const env = loadEnv();
+initErrorTracking(env);
 const { db, pool } = createDb(env.DATABASE_URL);
 const app = buildApp(db, env);
 
@@ -15,6 +17,7 @@ for (const signal of ['SIGTERM', 'SIGINT'] as const) {
     app.log.info({ signal }, 'Shutting down');
     await app.close();
     await pool.end();
+    await Sentry.close(2000); // send any queued error reports
     process.exit(0);
   });
 }

@@ -32,11 +32,12 @@ in a hosting ADR when built.
    (a backup you haven't restored isn't a backup). OpenTofu state is in R2 too, encrypted ([ADR-0016](adr/0016-remote-encrypted-state.md)).
 6. ✅ **Email** ([ADR-0017](adr/0017-email-resend.md)): Resend from `mail.<domain>` with
    SPF/DKIM/DMARC records in OpenTofu, and required email verification.
-7. **Observability (minimum)**: structured logs, an external uptime check, and error tracking
-   (Sentry free tier, or self-hosted GlitchTip).
+7. ✅ **Observability (minimum)** ([ADR-0019](adr/0019-monitoring-and-error-tracking.md)):
+   structured logs (Pino), a Better Stack uptime check and backup heartbeat (in OpenTofu), and
+   Sentry error tracking for the API. Later: searchable log history, browser errors.
 
 Cost: $6/month droplet + ~$1 volume + $0 R2 (free tier) + $0 Resend (free tier, 3,000 emails a
-month) ≈ **$7/month**, plus the domain.
+month) + $0 Better Stack and Sentry (free tiers) ≈ **$7/month**, plus the domain.
 
 ## Phase 3: The software factory
 

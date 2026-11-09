@@ -36,3 +36,9 @@ output "backup_bucket" {
   description = "Bucket for database backups (GitHub variable R2_BUCKET)."
   value       = cloudflare_r2_bucket.backups.name
 }
+
+output "backup_heartbeat_url" {
+  description = "Ping URL for the backup heartbeat (GitHub secret BACKUP_HEARTBEAT_URL in the backups environment)."
+  value       = betteruptime_heartbeat.backup.url
+  sensitive   = true
+}

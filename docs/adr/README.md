@@ -27,4 +27,5 @@ you'd want to explain in an interview. Copy [template.md](template.md).
 | 0015 | [Back up nightly with encrypted pg_dump to R2, and restore-test every backup](0015-backups.md)                   | Accepted           |
 | 0016 | [Keep OpenTofu state in R2, encrypted client-side](0016-remote-encrypted-state.md)                               | Accepted           |
 | 0017 | [Send email through Resend from a subdomain, and require email verification](0017-email-resend.md)               | Accepted           |
+| 0019 | [Monitor from outside with Better Stack, track errors with Sentry](0019-monitoring-and-error-tracking.md)        | Accepted           |
 | 0018 | [Limit auth emails per IP, per address and per day](0018-email-sending-limits.md)                                | Accepted           |

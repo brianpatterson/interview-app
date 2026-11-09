@@ -17,6 +17,10 @@ const envSchema = z
     RESEND_API_KEY: z.string().optional(),
     /** Sender, e.g. `Interview App <no-reply@mail.example.com>`, on a domain verified in Resend. */
     EMAIL_FROM: z.string().optional(),
+    /** Sentry project DSN (ADR-0019). Blank: errors only go to the log. */
+    SENTRY_DSN: z.string().optional(),
+    /** Which build an error came from: the deployed image tag. */
+    SENTRY_RELEASE: z.string().optional(),
     /** Emails of one kind to one address per 24 hours (ADR-0018). */
     EMAIL_LIMIT_PER_ADDRESS: z.coerce.number().int().positive().default(3),
     /** All emails per 24 hours. Resend's free plan allows 100 a day; this leaves headroom. */

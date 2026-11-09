@@ -70,3 +70,9 @@ variable "resend_dkim_public_key" {
     error_message = "Paste the DKIM TXT value from Resend, starting with p=."
   }
 }
+
+variable "betterstack_api_token" {
+  description = "Better Stack Incidents API token (Settings → API tokens → Team-based tokens). See README, Monitoring."
+  type        = string
+  sensitive   = true
+}
