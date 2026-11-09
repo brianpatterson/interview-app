@@ -9,7 +9,7 @@ state_passphrase      = "" # 16+ characters, e.g. a generated 6-word passphrase
 # From Resend → Domains → mail.<domain>: the value of the resend._domainkey TXT record.
 resend_dkim_public_key = "p=..."
 
-# Better Stack → Settings → API tokens → Uptime (monitoring.tf).
+# Better Stack → Settings → API tokens → Team-based tokens → Incidents API token (monitoring.tf).
 betterstack_api_token = ""
 
 # Optional overrides:

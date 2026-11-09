@@ -269,8 +269,9 @@ month).
 
 ### One-time setup
 
-1. **Better Stack.** Sign up at betterstack.com → **Uptime**. Then **Settings → API tokens** →
-   copy the **Uptime** token into `terraform.tfvars` as `betterstack_api_token`, and plan and
+1. **Better Stack.** Sign up at betterstack.com. Then **Settings → API tokens → Team-based
+   tokens** → your team's **Incidents API token** (Better Stack's new name for Uptime; not a
+   Global or Telemetry token). Copy it into `terraform.tfvars` as `betterstack_api_token`, and plan and
    apply. Expect 2 resources to add (the monitor and the heartbeat) and nothing else:
 
    ```bash

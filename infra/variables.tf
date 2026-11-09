@@ -72,7 +72,7 @@ variable "resend_dkim_public_key" {
 }
 
 variable "betterstack_api_token" {
-  description = "Better Stack Uptime API token (Settings → API tokens → Uptime). See README, Monitoring."
+  description = "Better Stack Incidents API token (Settings → API tokens → Team-based tokens). See README, Monitoring."
   type        = string
   sensitive   = true
 }
