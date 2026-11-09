@@ -107,7 +107,16 @@ jobs:
       - run: tofu fmt -check -recursive
       - name: ShellCheck (deploy and infra scripts)
         run: shellcheck ../deploy/*.sh test-cloud-init.sh
-      - run: tofu init -backend=false
+      # Providers download anonymously from GitHub releases, which time out during GitHub
+      # incidents. Retry with backoff (~5 minutes in total) before failing the job.
+      - name: tofu init (with retries)
+        run: |
+          for attempt in 1 2 3 4 5; do
+            tofu init -backend=false && exit 0
+            echo "::warning::tofu init failed (attempt $attempt of 5), retrying in $((attempt * 20))s"
+            sleep $((attempt * 20))
+          done
+          exit 1
       - run: tofu validate
       - name: cloud-init creates the expected users
         run: ./test-cloud-init.sh
