@@ -296,7 +296,20 @@ month).
    ssh -t ops@$(tofu output -raw ipv4) 'read -rsp "Sentry DSN: " k && echo && printf "SENTRY_DSN=%s\n" "$k" >> /opt/interview-app/.env && echo "✓ added"'
    ```
 
-   It takes effect on the next deploy.
+   It takes effect on the next deploy (re-run the latest **Deploy** workflow if nothing is
+   merging soon).
+
+4. **Check it end to end.** From `infra/`, send a test event from inside the running API
+   container. It uses the container's own DSN, so it proves the DSN is set, the droplet can reach
+   Sentry, and Sentry accepts events:
+
+   ```bash
+   ssh ops@$(tofu output -raw ipv4) 'cd /opt/interview-app && docker compose -f compose.prod.yml --env-file .env exec -T api node --input-type=module -' < ../deploy/sentry-test.mjs
+   ```
+
+   Expect `✓ Sentry accepted test event …`, then find "Production Sentry test event" under
+   **Issues** and resolve it. `SENTRY_DSN is not set` means the DSN isn't in `.env` or the API
+   hasn't been redeployed since.
 
 ## Things that replace the droplet
 
