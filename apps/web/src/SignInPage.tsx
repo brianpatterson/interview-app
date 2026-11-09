@@ -11,11 +11,10 @@ export function SignInPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  // A bad or expired verification link lands on /?error=… (set by the API's redirect).
+  // Failed redirects from the API land on /?error=…: a bad confirmation link, or a GitHub/Google
+  // sign-in that couldn't complete.
   const [error, setError] = useState<string | null>(() =>
-    new URLSearchParams(window.location.search).has('error')
-      ? 'That confirmation link is invalid or has expired. Sign in to get a new one.'
-      : null,
+    redirectErrorMessage(new URLSearchParams(window.location.search).get('error')),
   );
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -82,7 +81,9 @@ export function SignInPage() {
               <button
                 key={provider}
                 type="button"
-                onClick={() => authClient.signIn.social({ provider, callbackURL: '/' })}
+                onClick={() =>
+                  authClient.signIn.social({ provider, callbackURL: '/', errorCallbackURL: '/' })
+                }
               >
                 Continue with {providerLabels[provider]}
               </button>
@@ -151,4 +152,17 @@ export function SignInPage() {
       </p>
     </main>
   );
+}
+
+function redirectErrorMessage(code: string | null): string | null {
+  if (!code) return null;
+  if (code === 'INVALID_TOKEN' || code === 'TOKEN_EXPIRED') {
+    return 'That confirmation link is invalid or has expired. Sign in to get a new one.';
+  }
+  if (code === 'account_not_linked') {
+    // The email already has an account that either isn't confirmed or wasn't confirmed by the
+    // provider, so the two aren't joined automatically (see apps/api/src/auth.ts).
+    return "That email already has an account here. Sign in with your email and password instead (confirm your email first if you haven't).";
+  }
+  return "Sign-in didn't complete. Please try again.";
 }

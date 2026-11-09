@@ -171,7 +171,7 @@ sequenceDiagram
   G-->>B: redirect to /api/auth/callback/github?code=…&state=…
   B->>A: GET callback
   A->>G: exchange code (+ PKCE verifier) for tokens, fetch profile
-  A->>A: find or create user, link account by verified email
+  A->>A: find or create user; link to an existing account only if both sides verified the email
   A-->>B: Set-Cookie session (httpOnly, SameSite=Lax), redirect to /
 ```
 
@@ -193,6 +193,10 @@ sequenceDiagram
   through Resend from `mail.<domain>`, signed with DKIM under a DMARC `quarantine` policy. In
   development they're written to the API log instead ([ADR-0017](adr/0017-email-resend.md)).
 - **Password reset** signs out every other session.
+- **Account linking:** a GitHub or Google sign-in joins an existing account with the same email
+  only when the provider has verified that email **and** the existing account confirmed it.
+  Tests cover both refusals (an unconfirmed local account, an unverified provider email), which
+  are how an attacker would otherwise get into someone else's account.
 - **Email abuse:** at most 5 reset or verification requests and 10 sign-ups per IP per hour
   (Better Auth, in memory), then at most 3 emails of each kind per address and 80 in total per
   24 hours (Postgres, survives deploys). Over a limit the email is silently dropped
