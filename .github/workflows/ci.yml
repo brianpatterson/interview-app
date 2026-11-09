@@ -88,8 +88,17 @@ jobs:
         working-directory: infra
     env:
       TF_INPUT: 0 # fail instead of waiting for input that will never come
+      # Reuse downloaded providers between runs: faster, and a GitHub release-download outage
+      # (504s on every provider, 2026-11-09) no longer fails the job once they're cached.
+      TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.tofu-plugin-cache
     steps:
       - uses: actions/checkout@v7
+      - name: Cache OpenTofu providers
+        uses: actions/cache@v6
+        with:
+          path: .tofu-plugin-cache
+          key: tofu-providers-${{ runner.os }}-${{ hashFiles('infra/.terraform.lock.hcl') }}
+      - run: mkdir -p "$TF_PLUGIN_CACHE_DIR"
       - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
         with:
           # The default wrapper captures tofu's output for later steps, but it breaks piped stdin, so
