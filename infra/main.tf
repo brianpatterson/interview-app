@@ -1,14 +1,18 @@
 locals {
-  name = "interview-app"
-  tags = ["interview-app", "opentofu"]
+  name = "roundtable"
+  tags = ["roundtable", "opentofu"]
+  # The data volume keeps the app's original name: DigitalOcean can't rename a volume, so a new
+  # name means a new (empty) volume, and its device path is baked into cloud-init, so changing
+  # it would also replace the droplet. See docs/adr/0020-rename-to-roundtable.md.
+  volume_name = "interview-app-data"
   # DigitalOcean exposes a volume by name at this stable path.
-  volume_device = "/dev/disk/by-id/scsi-0DO_Volume_${local.name}-data"
+  volume_device = "/dev/disk/by-id/scsi-0DO_Volume_${local.volume_name}"
 }
 
 # Groups everything in the DigitalOcean console.
 resource "digitalocean_project" "app" {
   name        = local.name
-  description = "Interview App production"
+  description = "Roundtable production"
   purpose     = "Web Application"
   environment = "Production"
   resources = [
@@ -27,7 +31,7 @@ resource "digitalocean_ssh_key" "admin" {
 # disposable: replace it and the data reattaches. DigitalOcean volumes have no delete protection,
 # so prevent_destroy makes OpenTofu refuse to delete it.
 resource "digitalocean_volume" "data" {
-  name                    = "${local.name}-data"
+  name                    = local.volume_name
   region                  = var.region
   size                    = var.data_volume_size
   initial_filesystem_type = "ext4"

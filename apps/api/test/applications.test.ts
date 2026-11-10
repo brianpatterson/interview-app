@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { Application } from '@interview-app/shared';
+import type { Application } from '@roundtable/shared';
 import { setupTestApp, signUp } from './helpers.js';
 
 const t = setupTestApp();

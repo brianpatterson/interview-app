@@ -1,4 +1,4 @@
-# interview-app
+# Roundtable
 
 Track software-engineering job applications. Also a learning project for systems design, a
 "software factory" workflow, and real production deploys.

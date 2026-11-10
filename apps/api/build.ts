@@ -1,5 +1,5 @@
 // Bundles the API into self-contained ESM files for the production image: no node_modules, no
-// TypeScript at runtime. The workspace package (@interview-app/shared) and npm deps are inlined.
+// TypeScript at runtime. The workspace package (@roundtable/shared) and npm deps are inlined.
 import { build } from 'esbuild';
 
 await build({

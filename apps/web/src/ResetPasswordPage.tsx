@@ -17,7 +17,7 @@ export function ResetPasswordPage() {
 
   return (
     <main className="auth">
-      <h1>Interview App</h1>
+      <h1>Roundtable</h1>
       <h2>Choose a new password</h2>
       {!token ? (
         <p className="error">This reset link is invalid or has expired.</p>

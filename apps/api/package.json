@@ -1,5 +1,5 @@
 {
-  "name": "@interview-app/api",
+  "name": "@roundtable/api",
   "private": true,
   "type": "module",
   "scripts": {
@@ -19,7 +19,7 @@
     "vitest": "^5.1.0"
   },
   "dependencies": {
-    "@interview-app/shared": "workspace:*",
+    "@roundtable/shared": "workspace:*",
     "@sentry/node": "^11.11.0",
     "better-auth": "^1.7.18",
     "drizzle-orm": "^0.45.4",
