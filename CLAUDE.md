@@ -65,8 +65,9 @@ pnpm check          # lint + format check + typecheck + dependency register + te
   invariant before any type assertion, parse input with Zod instead of passing `unknown` or
   `object` around, and let `pnpm lint:fix` add blank lines. Update the plugin only through the
   `install-anti-slop` skill.
-- TypeScript is pinned to `~6.0`. The original reason (typescript-eslint) is gone, so upgrading
-  to 7 is an open, separate change.
+- TypeScript 7 (the native Go port, `^7.0`). Nothing in the toolchain uses its compiler API:
+  Vite, Vitest, tsx and esbuild strip types themselves and Oxlint has no type-aware rules on, so
+  `tsc` is the only consumer. Check that before adding a tool that does (e.g. type-aware lint).
 - GitHub Actions: pin third-party actions (anything outside `actions/*` and `github/*`) to a full
   commit SHA with the version in a comment. Dependabot keeps the pins current. Give every workflow
   an explicit `permissions:` block (default `contents: read`). Every job sets `timeout-minutes` (GitHub's
