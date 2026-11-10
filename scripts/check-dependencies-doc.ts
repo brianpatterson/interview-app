@@ -15,8 +15,10 @@ const manifests = [
 ];
 
 const installed = new Map<string, string[]>();
+
 for (const path of manifests) {
   const pkg = JSON.parse(readFileSync(join(root, path), 'utf8'));
+
   for (const name of Object.keys({ ...pkg.dependencies, ...pkg.devDependencies })) {
     installed.set(name, [...(installed.get(name) ?? []), path]);
   }
@@ -32,11 +34,14 @@ const stale = [...documented].filter((name) => !installed.has(name));
 for (const name of missing) {
   console.error(`✗ ${name} (${installed.get(name)!.join(', ')}) is not in docs/dependencies.md`);
 }
+
 for (const name of stale) {
   console.error(`✗ ${name} is in docs/dependencies.md but no package.json depends on it`);
 }
+
 if (missing.length || stale.length) {
   console.error('\nUpdate docs/dependencies.md: purpose, alternative, and why this one won.');
   process.exit(1);
 }
+
 console.log(`✓ All ${installed.size} dependencies are documented in docs/dependencies.md`);

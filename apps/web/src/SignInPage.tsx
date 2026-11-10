@@ -11,11 +11,13 @@ export function SignInPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
   // Failed redirects from the API land on /?error=…: a bad confirmation link, or a GitHub/Google
   // sign-in that couldn't complete.
   const [error, setError] = useState<string | null>(() =>
     redirectErrorMessage(new URLSearchParams(window.location.search).get('error')),
   );
+
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -37,23 +39,29 @@ export function SignInPage() {
     setError(null);
     setNotice(null);
     setPending(true);
+
     const result =
       mode === 'sign-in'
         ? await authClient.signIn.email({ email, password })
         : mode === 'sign-up'
           ? await authClient.signUp.email({ email, password, name, callbackURL: '/' })
           : await authClient.requestPasswordReset({ email, redirectTo: '/reset-password' });
+
     setPending(false);
+
     if (result.error) {
       if (result.error.code === 'EMAIL_NOT_VERIFIED') {
         return setNotice(`Confirm your email first: check ${email} (and spam) for the link.`);
       }
+
       return setError(result.error.message ?? 'Something went wrong');
     }
+
     if (mode === 'sign-up') {
       setPassword('');
       setNotice(`Check ${email} for a link to finish creating your account.`);
     }
+
     if (mode === 'forgot') setNotice('If that email has an account, a reset link is on its way.');
   }
 
@@ -156,13 +164,16 @@ export function SignInPage() {
 
 function redirectErrorMessage(code: string | null): string | null {
   if (!code) return null;
+
   if (code === 'INVALID_TOKEN' || code === 'TOKEN_EXPIRED') {
     return 'That confirmation link is invalid or has expired. Sign in to get a new one.';
   }
+
   if (code === 'account_not_linked') {
     // The email already has an account that either isn't confirmed or wasn't confirmed by the
     // provider, so the two aren't joined automatically (see apps/api/src/auth.ts).
     return "That email already has an account here. Sign in with your email and password instead (confirm your email first if you haven't).";
   }
+
   return "Sign-in didn't complete. Please try again.";
 }

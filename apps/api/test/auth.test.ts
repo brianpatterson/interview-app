@@ -6,7 +6,9 @@ const t = setupTestApp();
 const { app } = t;
 
 beforeAll(() => t.migrate());
+
 beforeEach(() => t.reset());
+
 afterAll(() => t.close());
 
 describe('authentication', () => {
@@ -29,52 +31,61 @@ describe('authentication', () => {
       url: '/api/applications',
       headers: { cookie: 'better-auth.session_token=forged.value' },
     });
+
     expect(res.statusCode).toBe(401);
   });
 
   it('signs in with email and password', async () => {
     const { email, password } = await signUp(t);
+
     const res = await app.inject({
       method: 'POST',
       url: '/api/auth/sign-in/email',
       headers: { origin: env.BETTER_AUTH_URL },
       payload: { email, password },
     });
+
     expect(res.statusCode).toBe(200);
     expect(res.cookies.some((c) => c.name.endsWith('session_token') && c.httpOnly)).toBe(true);
   });
 
   it('rejects a wrong password', async () => {
     const { email } = await signUp(t);
+
     const res = await app.inject({
       method: 'POST',
       url: '/api/auth/sign-in/email',
       headers: { origin: env.BETTER_AUTH_URL },
       payload: { email, password: 'wrong password here' },
     });
+
     expect(res.statusCode).toBe(401);
   });
 
   it('rejects a cookie-authenticated request from an untrusted origin (CSRF)', async () => {
     // A cross-site attacker can make the browser attach the victim's cookie, but not fake Origin.
     const { cookie } = await signUp(t);
+
     const res = await app.inject({
       method: 'POST',
       url: '/api/auth/sign-out',
       headers: { cookie, origin: 'https://evil.example' },
       payload: {},
     });
+
     expect(res.statusCode).toBe(403);
   });
 
   it('sends a password reset link', async () => {
     const { email } = await signUp(t);
+
     const res = await app.inject({
       method: 'POST',
       url: '/api/auth/request-password-reset',
       headers: { origin: env.BETTER_AUTH_URL },
       payload: { email, redirectTo: '/reset-password' },
     });
+
     expect(res.statusCode).toBe(200);
     expect(takeEmail(t, email, 'Reset your').text).toContain('/reset-password');
   });
@@ -87,17 +98,20 @@ describe('authentication', () => {
       headers: { origin: env.BETTER_AUTH_URL },
       payload: { email, redirectTo: '/reset-password' },
     });
+
     const token = new URL(
       takeEmail(t, email, 'Reset your').text.match(/https?:\/\/\S+/)![0],
     ).pathname
       .split('/')
       .pop();
+
     const reset = await app.inject({
       method: 'POST',
       url: '/api/auth/reset-password',
       headers: { origin: env.BETTER_AUTH_URL },
       payload: { token, newPassword: 'a brand new password' },
     });
+
     expect(reset.statusCode).toBe(200);
     const res = await app.inject({ method: 'GET', url: '/api/applications', headers: { cookie } });
     expect(res.statusCode).toBe(401);
@@ -116,12 +130,14 @@ describe('email verification', () => {
   it('refuses an unverified sign-in and sends a fresh link', async () => {
     const { email, password } = await signUpUnverified(t);
     takeEmail(t, email, 'Confirm your email');
+
     const res = await app.inject({
       method: 'POST',
       url: '/api/auth/sign-in/email',
       headers: { origin: env.BETTER_AUTH_URL },
       payload: { email, password },
     });
+
     expect(res.statusCode).toBe(403);
     expect(res.json<{ code: string }>().code).toBe('EMAIL_NOT_VERIFIED');
     expect(takeEmail(t, email, 'Confirm your email')).toBeDefined();
@@ -129,10 +145,12 @@ describe('email verification', () => {
 
   it('signs in and redirects home when the link is clicked', async () => {
     const { email } = await signUpUnverified(t);
+
     const res = await app.inject({
       method: 'GET',
       url: linkPath(takeEmail(t, email, 'Confirm your email')),
     });
+
     expect(res.statusCode).toBe(302);
     expect(res.headers.location).toBe('/');
     expect(res.cookies.some((c) => c.name.endsWith('session_token') && c.httpOnly)).toBe(true);
@@ -143,6 +161,7 @@ describe('email verification', () => {
       method: 'GET',
       url: '/api/auth/verify-email?token=not-a-real-token&callbackURL=%2F',
     });
+
     expect(res.statusCode).toBe(302);
     expect(res.headers.location).toMatch(/^\/\?error=/);
     expect(res.cookies.some((c) => c.name.endsWith('session_token'))).toBe(false);
@@ -160,6 +179,7 @@ describe('per-user data', () => {
       headers: { cookie: alice.cookie },
       payload: { company: 'Alice Co', jobTitle: 'SWE' },
     });
+
     const { id } = created.json<Application>();
 
     const bobList = await app.inject({
@@ -167,6 +187,7 @@ describe('per-user data', () => {
       url: '/api/applications',
       headers: { cookie: bob.cookie },
     });
+
     expect(bobList.json()).toEqual([]);
 
     for (const method of ['GET', 'PATCH', 'DELETE'] as const) {
@@ -176,6 +197,7 @@ describe('per-user data', () => {
         headers: { cookie: bob.cookie },
         payload: method === 'PATCH' ? { status: 'rejected' } : undefined,
       });
+
       expect(res.statusCode, method).toBe(404);
     }
 
@@ -184,6 +206,7 @@ describe('per-user data', () => {
       url: `/api/applications/${id}`,
       headers: { cookie: alice.cookie },
     });
+
     expect(aliceView.json<Application>().status).toBe('applied');
   });
 });

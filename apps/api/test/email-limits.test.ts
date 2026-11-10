@@ -22,15 +22,18 @@ describe('email limits', () => {
 
   it('sends at most 3 password resets to one address a day, without telling the requester', async () => {
     const { email } = await signUp(t);
+
     for (let i = 0; i < 5; i++) {
       expect((await requestReset(t, email)).statusCode).toBe(200);
     }
+
     expect(resetsTo(t, email)).toBe(3);
   });
 
   it('counts each kind separately', async () => {
     // signUp already used one verification email for this address.
     const { email } = await signUp(t);
+
     for (let i = 0; i < 3; i++) await requestReset(t, email);
     expect(resetsTo(t, email)).toBe(3);
   });

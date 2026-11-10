@@ -9,8 +9,10 @@ export function ResetPasswordPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+
     if (!token) return;
     const result = await authClient.resetPassword({ newPassword: password, token });
+
     if (result.error) return setError(result.error.message ?? 'Something went wrong');
     setDone(true);
   }

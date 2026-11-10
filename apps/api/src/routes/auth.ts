@@ -10,10 +10,13 @@ export function authRoutes(app: FastifyInstance, auth: Auth, providers: AuthProv
     url: '/api/auth/*',
     async handler(req, reply) {
       const headers = new Headers();
+
       for (const [key, value] of Object.entries(req.headers)) {
         if (value !== undefined) headers.append(key, String(value));
       }
+
       const url = new URL(req.url, `${req.protocol}://${req.host}`);
+
       const response = await auth.handler(
         new Request(url, {
           method: req.method,
@@ -27,7 +30,9 @@ export function authRoutes(app: FastifyInstance, auth: Auth, providers: AuthProv
         if (key !== 'set-cookie') reply.header(key, value);
       });
       const cookies = response.headers.getSetCookie();
+
       if (cookies.length) reply.header('set-cookie', cookies);
+
       return reply.send(response.body ? await response.text() : null);
     },
   });

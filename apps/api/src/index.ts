@@ -4,7 +4,9 @@ import { loadEnv } from './env.js';
 import { initErrorTracking, Sentry } from './error-tracking.js';
 
 const env = loadEnv();
+
 initErrorTracking(env);
+
 const { db, pool } = createDb(env.DATABASE_URL);
 const app = buildApp(db, env);
 

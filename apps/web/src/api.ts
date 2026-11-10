@@ -9,7 +9,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
   });
+
   if (!res.ok) throw new Error(`${init?.method ?? 'GET'} ${path} failed: ${res.status}`);
+
   return (res.status === 204 ? undefined : await res.json()) as T;
 }
 

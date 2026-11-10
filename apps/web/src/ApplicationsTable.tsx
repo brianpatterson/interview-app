@@ -14,10 +14,13 @@ export function ApplicationsTable() {
       api.updateApplication(id, { status }),
     onSuccess: invalidate,
   });
+
   const remove = useMutation({ mutationFn: api.deleteApplication, onSuccess: invalidate });
 
   if (applications.isPending) return <p>Loading…</p>;
+
   if (applications.isError) return <p className="error">{applications.error.message}</p>;
+
   if (applications.data.length === 0) return <p>No applications yet. Add your first one above.</p>;
 
   return (

@@ -30,6 +30,7 @@ export function limitedMailer(
 ): SendEmail {
   return async (email) => {
     const recipient = email.to.toLowerCase();
+
     const verdict = await db.transaction(async (tx) => {
       // Serialize the check-then-insert, so concurrent requests can't all see the same count and
       // all pass. Auth emails are rare, so one lock for the whole table costs nothing.
@@ -45,9 +46,11 @@ export function limitedMailer(
         .where(sql`${emailSends.sentAt} > now() - interval '24 hours'`);
 
       if (counts!.total >= limits.perDay) return 'daily limit' as const;
+
       if (counts!.forAddress >= limits.perAddress) return 'address limit' as const;
       // Recorded before sending: a send that then fails still counts, which errs on the safe side.
       await tx.insert(emailSends).values({ recipient, kind: email.kind });
+
       return 'ok' as const;
     });
 
@@ -62,15 +65,19 @@ export function limitedMailer(
         level: 'error',
         extra: { kind: email.kind, limit: limits.perDay },
       });
+
       return;
     }
+
     if (verdict === 'address limit') {
       log.warn(
         { kind: email.kind, limit: limits.perAddress },
         'Email not sent: per-address limit reached',
       );
+
       return;
     }
+
     try {
       await send(email);
     } catch (error) {

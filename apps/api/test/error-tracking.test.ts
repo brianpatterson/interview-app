@@ -15,6 +15,7 @@ describe('scrubEvent', () => {
         headers: { Cookie: 'a=b', authorization: 'Bearer x', 'user-agent': 'test' },
       },
     } as ErrorEvent);
+
     expect(event.request).toEqual({
       url: 'https://example.com/api/auth/verify-email',
       headers: { 'user-agent': 'test' },
@@ -31,6 +32,7 @@ describe('error reporting', () => {
         // Capture instead of sending anywhere.
         beforeSend: (event) => {
           events.push(scrubEvent(event));
+
           return null;
         },
       },
@@ -51,12 +53,14 @@ describe('error reporting', () => {
     const t = failing();
     await t.migrate();
     await t.reset();
+
     const res = await t.app.inject({
       method: 'POST',
       url: '/api/auth/sign-up/email?token=leak',
       headers: { origin: env.BETTER_AUTH_URL },
       payload: { email: 'x@example.com', password: 'correct horse battery', name: 'X' },
     });
+
     // Better Auth still answers 200 ("check your email"): the failure is only visible in Sentry.
     expect(res.statusCode).toBe(200);
     await Sentry.flush(2000);
@@ -84,12 +88,14 @@ describe('error reporting', () => {
     await t.migrate();
     await t.reset();
     const { email } = await signUp(t);
+
     const res = await t.app.inject({
       method: 'POST',
       url: '/api/auth/sign-in/email',
       headers: { origin: env.BETTER_AUTH_URL },
       payload: { email, password: 'wrong password here' },
     });
+
     expect(res.statusCode).toBe(401);
     await Sentry.flush(2000);
     expect(events).toHaveLength(0);

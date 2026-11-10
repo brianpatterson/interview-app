@@ -32,6 +32,7 @@ export function initErrorTracking(env: Env, overrides: Partial<Sentry.NodeOption
     beforeSend: scrubEvent,
     ...overrides,
   });
+
   return true;
 }
 
@@ -42,17 +43,20 @@ export function initErrorTracking(env: Env, overrides: Partial<Sentry.NodeOption
  */
 export function scrubEvent<T extends Sentry.ErrorEvent>(event: T): T {
   const request = event.request;
+
   if (request) {
     if (request.url) request.url = request.url.split('?')[0];
     delete request.query_string;
     delete request.cookies;
     delete request.data;
+
     if (request.headers) {
       for (const name of Object.keys(request.headers)) {
         if (/^(cookie|authorization|x-forwarded-for)$/i.test(name)) delete request.headers[name];
       }
     }
   }
+
   return event;
 }
 

@@ -10,8 +10,11 @@ export type AuthProvider = 'github' | 'google';
 
 export function enabledProviders(env: Env): AuthProvider[] {
   const providers: AuthProvider[] = [];
+
   if (env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET) providers.push('github');
+
   if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) providers.push('google');
+
   return providers;
 }
 

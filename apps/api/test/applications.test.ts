@@ -7,10 +7,12 @@ const { app } = t;
 let cookie: string;
 
 beforeAll(() => t.migrate());
+
 beforeEach(async () => {
   await t.reset();
   ({ cookie } = await signUp(t));
 });
+
 afterAll(() => t.close());
 
 function request(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, payload?: object) {
@@ -19,6 +21,7 @@ function request(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, paylo
 
 async function create(body: object) {
   const res = await request('POST', '/api/applications', body);
+
   return { res, json: res.json<Application>() };
 }
 
@@ -51,9 +54,11 @@ describe('applications API', () => {
 
   it('updates status and bumps updatedAt', async () => {
     const { json: created } = await create({ company: 'Acme', jobTitle: 'SWE' });
+
     const res = await request('PATCH', `/api/applications/${created.id}`, {
       status: 'interviewing',
     });
+
     const updated = res.json<Application>();
     expect(res.statusCode).toBe(200);
     expect(updated.status).toBe('interviewing');

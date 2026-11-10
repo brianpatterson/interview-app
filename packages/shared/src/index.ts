@@ -11,6 +11,7 @@ export const APPLICATION_STATUSES = [
 ] as const;
 
 export const applicationStatusSchema = z.enum(APPLICATION_STATUSES);
+
 export type ApplicationStatus = z.infer<typeof applicationStatusSchema>;
 
 export const createApplicationSchema = z.object({
@@ -19,11 +20,13 @@ export const createApplicationSchema = z.object({
   jobUrl: z.url().max(2000).nullish(),
   status: applicationStatusSchema.optional(),
 });
+
 export type CreateApplicationInput = z.infer<typeof createApplicationSchema>;
 
 export const updateApplicationSchema = createApplicationSchema
   .partial()
   .refine((value) => Object.keys(value).length > 0, 'At least one field is required');
+
 export type UpdateApplicationInput = z.infer<typeof updateApplicationSchema>;
 
 /** An application as returned by the API (dates are ISO 8601 strings). */

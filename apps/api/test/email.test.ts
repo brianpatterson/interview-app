@@ -36,6 +36,7 @@ describe('resendMailer', () => {
     const fetchMock = vi.fn(
       async () => new Response('{"message":"domain not verified"}', { status: 403 }),
     );
+
     await expect(
       resendMailer(
         're_test',

@@ -16,8 +16,10 @@ function fakeGitHub(user: FakeGitHubUser) {
   const realFetch = globalThis.fetch;
   vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+
     const json = (body: unknown) =>
       new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
+
     if (url.startsWith('https://github.com/login/oauth/access_token')) {
       return json({
         access_token: 'gho_fake',
@@ -25,6 +27,7 @@ function fakeGitHub(user: FakeGitHubUser) {
         scope: 'read:user,user:email',
       });
     }
+
     if (url === 'https://api.github.com/user') {
       return json({
         id: user.id,
@@ -34,7 +37,9 @@ function fakeGitHub(user: FakeGitHubUser) {
         avatar_url: null,
       });
     }
+
     if (url === 'https://api.github.com/user/emails') return json(user.emails);
+
     return realFetch(input, init);
   });
 }
@@ -47,6 +52,7 @@ async function signInWithGitHub(t: TestApp) {
     headers: { origin: env.BETTER_AUTH_URL },
     payload: { provider: 'github', callbackURL: '/', errorCallbackURL: '/' },
   });
+
   expect(start.statusCode).toBe(200);
   const authorizeUrl = new URL(start.json<{ url: string }>().url);
   const state = authorizeUrl.searchParams.get('state')!;
@@ -57,6 +63,7 @@ async function signInWithGitHub(t: TestApp) {
     url: `/api/auth/callback/github?code=fake-code&state=${encodeURIComponent(state)}`,
     headers: { cookie },
   });
+
   return {
     authorizeUrl,
     status: callback.statusCode,
