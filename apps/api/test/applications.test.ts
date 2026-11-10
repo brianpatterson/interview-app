@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { applicationSchema, type Application } from '@roundtable/shared';
 import type { InjectOptions } from 'fastify';
 import { setupTestApp, signUp } from './helpers.js';
@@ -15,6 +15,8 @@ beforeEach(async () => {
 });
 
 afterAll(() => t.close());
+
+afterEach(() => vi.useRealTimers());
 
 // Raw request bodies, deliberately untyped by the contract: several tests send invalid input.
 type Payload = InjectOptions['payload'];
@@ -79,6 +81,19 @@ describe('applications API', () => {
     expect(updated.status).toBe('interviewing');
     expect(new Date(updated.updatedAt) > new Date(created.updatedAt)).toBe(true);
     expect(updated.createdAt).toBe(created.createdAt);
+  });
+
+  it('bumps updatedAt even when the API clock is behind the database clock', async () => {
+    const { json: created } = await create({ company: 'Acme', jobTitle: 'SWE' });
+
+    // Clocks on different machines (or Docker Desktop's VM) drift apart. createdAt comes from
+    // Postgres, so updatedAt must too, or an update can land "before" the row was created.
+    vi.useFakeTimers({ toFake: ['Date'], now: Date.now() - 60_000 });
+    const res = await request('PATCH', `/api/applications/${created.id}`, { status: 'offer' });
+    vi.useRealTimers();
+
+    const updated = res.json<Application>();
+    expect(new Date(updated.updatedAt) > new Date(created.updatedAt)).toBe(true);
   });
 
   it('rejects an unknown status', async () => {
