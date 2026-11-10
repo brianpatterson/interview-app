@@ -57,3 +57,8 @@ by the session's user, and other users' rows return 404.
   the constraint.
 - Each OAuth provider needs an app registration per environment (localhost, production), with
   the callback URL `<BETTER_AUTH_URL>/api/auth/callback/<provider>`.
+- _Update 2026-11-09: GitHub and Google were listed as `trustedProviders`, which makes Better Auth
+  skip checking that the provider verified the email before linking. A test showed a GitHub
+  account listing someone's address **unverified** would be signed into their account. Removed:
+  linking now requires the email verified by the provider and by us (`requireLocalEmailVerified`).
+  Caught before any OAuth credentials were configured in production._

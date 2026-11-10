@@ -68,9 +68,13 @@ export function createAuth(
         ? { google: { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET } }
         : {}),
     },
-    // Let a user who signed up with email later sign in with GitHub/Google using the same
-    // verified email, instead of creating a second account.
-    account: { accountLinking: { enabled: true, trustedProviders: ['github', 'google'] } },
+    // Let a user who signed up with email later sign in with GitHub/Google using the same email,
+    // instead of creating a second account. Only when BOTH sides have verified it: the provider
+    // (Better Auth's default without `trustedProviders`) and our account
+    // (`requireLocalEmailVerified`, on by default). Listing providers as trusted skips the
+    // provider check: a GitHub account showing someone's address without having verified it would
+    // be signed into their account (test/oauth.test.ts).
+    account: { accountLinking: { enabled: true, requireLocalEmailVerified: true } },
     // Better Auth silently disables its CSRF origin check when NODE_ENV=test. Force it on so the
     // test suite exercises the same protection as production.
     advanced: { disableOriginCheck: false },

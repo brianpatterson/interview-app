@@ -138,7 +138,7 @@ gh variable set DOMAIN --env production --body roundtableapp.us
 | Roll back to an earlier release                            | Open that release's successful **Deploy** run and click **Re-run all jobs**. It redeploys exactly that SHA. Only safe if migrations since then are backward-compatible. |
 | What's live?                                               | `ssh ops@<ipv4> cat /opt/interview-app/.deployed`                                                                                                                       |
 | Logs                                                       | `ssh ops@<ipv4> 'cd /opt/interview-app && docker compose -f compose.prod.yml --env-file .env logs --tail 100 api'`                                                      |
-| Add OAuth credentials                                      | Edit `/opt/interview-app/.env` as `ops`, then redeploy                                                                                                                  |
+| Add OAuth credentials                                      | See [Sign in with GitHub and Google](#sign-in-with-github-and-google)                                                                                                   |
 
 ## Backups
 
@@ -263,6 +263,65 @@ but the deploy shows as failed.
 
 To rotate the key: create a new one, replace the `RESEND_API_KEY=` line in `.env` on the server,
 redeploy, then delete the old key in Resend.
+
+## Sign in with GitHub and Google
+
+The buttons appear on the sign-in page as soon as a provider's client ID and secret are in the
+server's `.env` ([ADR-0011](../docs/adr/0011-authentication.md)). **Cost:** $0. Each provider's
+callback is `https://<domain>/api/auth/callback/<provider>`.
+
+### GitHub
+
+1. GitHub → **Settings** → **Developer settings** → **OAuth Apps** → **New OAuth App** (an
+   OAuth App, not a GitHub App).
+   - Application name: `Roundtable`
+   - Homepage URL: `https://<domain>`
+   - Authorization callback URL: `https://<domain>/api/auth/callback/github`
+2. **Register application**, then **Generate a new client secret**. Keep the page open: the
+   secret is shown once.
+
+An OAuth App allows one callback URL, so local development needs a second app with
+`http://localhost:5173` and `http://localhost:5173/api/auth/callback/github`, in your local `.env`.
+
+### Google
+
+1. [Google Cloud console](https://console.cloud.google.com) → create a project (`Roundtable`).
+2. **Google Auth Platform** (formerly "OAuth consent screen") → **Get started**:
+   - App name `Roundtable`, your email as the support and developer contact.
+   - Audience: **External**.
+3. **Clients** → **Create client** → **Web application**:
+   - Authorized JavaScript origins: `https://<domain>` (and `http://localhost:5173` for development)
+   - Authorized redirect URIs: `https://<domain>/api/auth/callback/google` (and
+     `http://localhost:5173/api/auth/callback/google`)
+
+   Copy the client ID and secret.
+
+4. **Audience** → **Publish app**. In "Testing" only listed test users can sign in. We only ask for
+   `openid`, `email` and `profile`, which need no Google review.
+
+### Put the credentials on the server
+
+From `infra/`. Each value is asked for in turn without being shown; a provider left blank stays
+off. Any existing line for the same key is replaced:
+
+```bash
+ssh -t ops@$(tofu output -raw ipv4) 'f=/opt/interview-app/.env; for k in GITHUB_CLIENT_ID GITHUB_CLIENT_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET; do read -rsp "$k: " v; echo; [ -n "$v" ] && sed -i "/^$k=/d" "$f" && printf "%s=%s\n" "$k" "$v" >> "$f"; done; echo "✓ done"'
+```
+
+Then redeploy so the API reads them (Actions → **Deploy** → latest run → **Re-run all jobs**),
+and check:
+
+```bash
+curl -s https://<domain>/api/auth-config   # {"providers":["github","google"]}
+```
+
+Finally, sign in with each provider in a private window.
+
+**How accounts are joined:** signing in with GitHub or Google using an email that already has an
+account joins the two only when both the provider and our account have verified that email.
+Otherwise the user sees "That email already has an account here" and signs in with their
+password instead. That blocks someone from pre-registering your address, or listing it unverified
+on their GitHub account, to get into your account.
 
 ## Monitoring
 
