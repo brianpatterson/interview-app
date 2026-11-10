@@ -1,12 +1,15 @@
+import { sql } from 'drizzle-orm';
 import { boolean, index, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { APPLICATION_STATUSES } from '@roundtable/shared';
 
+// Both timestamps come from Postgres's clock. Mixing in the API's clock (`new Date()`) lets an
+// update land "before" the insert whenever the two machines' clocks drift apart.
 const timestamps = {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .notNull()
     .defaultNow()
-    .$onUpdate(() => new Date()),
+    .$onUpdate(() => sql`now()`),
 };
 
 // Auth tables. Shapes are dictated by Better Auth (see docs/adr/0011-authentication.md).

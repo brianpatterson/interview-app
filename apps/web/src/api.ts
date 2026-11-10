@@ -1,23 +1,35 @@
-import type {
-  Application,
-  CreateApplicationInput,
-  UpdateApplicationInput,
+import {
+  applicationSchema,
+  type CreateApplicationInput,
+  type UpdateApplicationInput,
 } from '@roundtable/shared';
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function send(path: string, init?: RequestInit): Promise<Response> {
   const res = await fetch(`/api${path}`, {
     ...init,
     headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
   });
+
   if (!res.ok) throw new Error(`${init?.method ?? 'GET'} ${path} failed: ${res.status}`);
-  return (res.status === 204 ? undefined : await res.json()) as T;
+
+  return res;
 }
 
+// Every response is parsed with the shared contract's schema, so a shape mismatch fails loudly here.
 export const api = {
-  listApplications: () => request<Application[]>('/applications'),
-  createApplication: (input: CreateApplicationInput) =>
-    request<Application>('/applications', { method: 'POST', body: JSON.stringify(input) }),
-  updateApplication: (id: string, input: UpdateApplicationInput) =>
-    request<Application>(`/applications/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
-  deleteApplication: (id: string) => request<void>(`/applications/${id}`, { method: 'DELETE' }),
+  listApplications: async () =>
+    applicationSchema.array().parse(await (await send('/applications')).json()),
+  createApplication: async (input: CreateApplicationInput) =>
+    applicationSchema.parse(
+      await (await send('/applications', { method: 'POST', body: JSON.stringify(input) })).json(),
+    ),
+  updateApplication: async (id: string, input: UpdateApplicationInput) =>
+    applicationSchema.parse(
+      await (
+        await send(`/applications/${id}`, { method: 'PATCH', body: JSON.stringify(input) })
+      ).json(),
+    ),
+  deleteApplication: async (id: string) => {
+    await send(`/applications/${id}`, { method: 'DELETE' });
+  },
 };

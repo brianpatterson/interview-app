@@ -6,6 +6,7 @@
 import { randomUUID } from 'node:crypto';
 
 const dsn = process.env.SENTRY_DSN;
+
 if (!dsn) {
   console.error('✗ SENTRY_DSN is not set in the api container. Add it to .env and redeploy.');
   process.exit(1);
@@ -14,6 +15,7 @@ if (!dsn) {
 const { protocol, username: publicKey, host, pathname } = new URL(dsn);
 const projectId = pathname.replace(/^\//, '');
 const eventId = randomUUID().replaceAll('-', '');
+
 const event = {
   event_id: eventId,
   timestamp: Date.now() / 1000,
@@ -24,6 +26,7 @@ const event = {
   environment: process.env.NODE_ENV ?? 'production',
   release: process.env.SENTRY_RELEASE,
 };
+
 const envelope = [
   JSON.stringify({ event_id: eventId, sent_at: new Date().toISOString() }),
   JSON.stringify({ type: 'event' }),
@@ -44,8 +47,11 @@ if (!res.ok) {
   console.error(`✗ Sentry answered HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
   process.exit(1);
 }
+
 console.log(`✓ Sentry accepted test event ${eventId}`);
+
 console.log(`  release: ${event.release ?? '(none)'}, environment: ${event.environment}`);
+
 console.log(
   '  Find it in Sentry → Issues (search "Production Sentry test event"), then resolve it.',
 );

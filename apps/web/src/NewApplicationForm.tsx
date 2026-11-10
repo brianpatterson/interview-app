@@ -14,6 +14,7 @@ export function NewApplicationForm() {
       setCompany('');
       setJobTitle('');
       setJobUrl('');
+
       return queryClient.invalidateQueries({ queryKey: ['applications'] });
     },
   });

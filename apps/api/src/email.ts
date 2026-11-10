@@ -40,6 +40,7 @@ export function resendMailer(
       body: JSON.stringify({ from, to: [to], subject, text }),
       signal: AbortSignal.timeout(10_000),
     });
+
     if (!res.ok) {
       // Resend's error body names the problem (e.g. an unverified domain) and contains no secrets.
       const detail = (await res.text()).slice(0, 500);

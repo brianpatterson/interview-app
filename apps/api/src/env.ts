@@ -39,8 +39,10 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   // Compose passes unset optional variables as empty strings. Treat those as unset.
   const cleaned = Object.fromEntries(Object.entries(source).filter(([, value]) => value !== ''));
   const result = envSchema.safeParse(cleaned);
+
   if (!result.success) {
     throw new Error(`Invalid environment:\n${z.prettifyError(result.error)}`);
   }
+
   return result.data;
 }

@@ -6,5 +6,6 @@ export type Db = NodePgDatabase<typeof schema>;
 
 export function createDb(connectionString: string) {
   const pool = new pg.Pool({ connectionString });
+
   return { db: drizzle(pool, { schema }), pool };
 }
