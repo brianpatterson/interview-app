@@ -58,7 +58,15 @@ pnpm check          # lint + format check + typecheck + dependency register + te
 ## Conventions
 
 - Conventional commit subjects (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`).
-- TypeScript is pinned to `~6.0` until typescript-eslint supports TS 7.
+- Lint is Oxlint only (ADR-0021): core, TypeScript and React hooks rules, plus the vendored
+  anti-slop rules (`tools/oxlint/anti-slop/`). In `.oxlintrc.json`, always write rules with their
+  plugin prefix (`typescript/no-namespace`); a bare name can resolve to another plugin's rule
+  and silently do nothing. Fix findings, don't suppress them: put a `// SAFETY:` comment stating the checked
+  invariant before any type assertion, parse input with Zod instead of passing `unknown` or
+  `object` around, and let `pnpm lint:fix` add blank lines. Update the plugin only through the
+  `install-anti-slop` skill.
+- TypeScript is pinned to `~6.0`. The original reason (typescript-eslint) is gone, so upgrading
+  to 7 is an open, separate change.
 - GitHub Actions: pin third-party actions (anything outside `actions/*` and `github/*`) to a full
   commit SHA with the version in a comment. Dependabot keeps the pins current. Give every workflow
   an explicit `permissions:` block (default `contents: read`). Every job sets `timeout-minutes` (GitHub's

@@ -31,6 +31,7 @@ pnpm dev               # start web + api
 ## Scripts
 
 - `pnpm check`: everything CI runs (lint, format, typecheck, dependency register, tests)
+- `pnpm lint:fix`: apply Oxlint autofixes (the anti-slop blank-line rule is autofixable)
 - `pnpm test`: API integration tests against the `app_test` database
 - `pnpm db:generate --name <change>`: generate a SQL migration after editing `apps/api/src/db/schema.ts`
 - `pnpm db:migrate`: apply migrations

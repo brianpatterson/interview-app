@@ -81,7 +81,7 @@ is marked ✅.
 
 | Layer                       | Question it answers                                        | Tools                                                                  | Status                                        |
 | --------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------- |
-| Static checks               | Is the code well-formed?                                   | TypeScript strict, ESLint, Prettier                                    | ✅                                            |
+| Static checks               | Is the code well-formed?                                   | TypeScript strict, Oxlint, Prettier                                    | ✅                                            |
 | Contract                    | Do the frontend and backend agree?                         | Shared Zod schemas                                                     | ✅                                            |
 | Integration tests           | Does the API behave correctly against a real DB?           | Vitest + Postgres                                                      | ✅                                            |
 | Security scanning           | Known-vulnerable deps? Injection bugs?                     | Dependabot, dependency review, CodeQL                                  | ✅                                            |

@@ -30,3 +30,4 @@ you'd want to explain in an interview. Copy [template.md](template.md).
 | 0019 | [Monitor from outside with Better Stack, track errors with Sentry](0019-monitoring-and-error-tracking.md)        | Accepted           |
 | 0020 | [Rename the app to Roundtable, keeping three server-level names](0020-rename-to-roundtable.md)                   | Accepted           |
 | 0018 | [Limit auth emails per IP, per address and per day](0018-email-sending-limits.md)                                | Accepted           |
+| 0021 | [Lint with Oxlint only, including the anti-slop rules](0021-oxlint-with-anti-slop-rules.md)                      | Accepted           |

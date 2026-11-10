@@ -2,3 +2,5 @@ pnpm-lock.yaml
 dist
 # Installed agent skills are vendored as-is (skills-lock.json hashes them).
 .claude/
+# Vendored anti-slop Oxlint plugin (provenance in tools/oxlint/anti-slop/UPSTREAM.md).
+tools/oxlint/anti-slop/
