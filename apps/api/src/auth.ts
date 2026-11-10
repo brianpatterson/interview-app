@@ -40,7 +40,7 @@ export function createAuth(
         await sendEmail({
           kind: 'password-reset',
           to: user.email,
-          subject: 'Reset your Interview App password',
+          subject: 'Reset your Roundtable password',
           text: `Reset your password: ${url}\n\nIf you didn't ask for this, ignore this email.`,
         });
       },
@@ -55,7 +55,7 @@ export function createAuth(
         await sendEmail({
           kind: 'verification',
           to: user.email,
-          subject: 'Confirm your email for Interview App',
+          subject: 'Confirm your email for Roundtable',
           text: `Confirm your email to finish signing up: ${url}\n\nThe link expires in 1 hour. If you didn't sign up, ignore this email.`,
         });
       },

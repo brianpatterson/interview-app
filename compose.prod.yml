@@ -1,11 +1,13 @@
 # Production stack: Caddy (web) → API → Postgres. Runs on the server from /opt/interview-app with
 # a .env file next to it (created by deploy/init-env.sh; see .env.prod.example) and is deployed by
 # deploy/deploy.sh. Locally: docker compose -f compose.prod.yml up.
+# The project keeps the original name: renaming it would start a second stack competing for ports
+# 80/443 (downtime), and backup.yml addresses the database as interview-app-prod-db-1. ADR-0020.
 name: interview-app-prod
 
 services:
   web:
-    image: ${WEB_IMAGE:-interview-app-web:local}
+    image: ${WEB_IMAGE:-roundtable-web:local}
     build: { context: ., dockerfile: apps/web/Dockerfile }
     restart: unless-stopped
     ports:
@@ -23,7 +25,7 @@ services:
       api: { condition: service_healthy }
 
   api:
-    image: ${API_IMAGE:-interview-app-api:local}
+    image: ${API_IMAGE:-roundtable-api:local}
     build: { context: ., dockerfile: apps/api/Dockerfile }
     restart: unless-stopped
     environment: &api-env
@@ -36,7 +38,7 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       # Required: the API refuses to start in production without it (sign-up needs email).
       RESEND_API_KEY: ${RESEND_API_KEY:-}
-      EMAIL_FROM: Interview App <no-reply@mail.${DOMAIN}>
+      EMAIL_FROM: Roundtable <no-reply@mail.${DOMAIN}>
       # Error tracking (ADR-0019). Optional: blank leaves Sentry off.
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_RELEASE: ${API_IMAGE:-local}
@@ -49,7 +51,7 @@ services:
 
   # Runs pending migrations, then exits. The API only starts if this succeeds.
   migrate:
-    image: ${API_IMAGE:-interview-app-api:local}
+    image: ${API_IMAGE:-roundtable-api:local}
     command: ['node', '--enable-source-maps', 'dist/migrate.js']
     restart: 'no'
     environment: *api-env

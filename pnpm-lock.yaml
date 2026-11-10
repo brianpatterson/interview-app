@@ -193,7 +193,7 @@ importers:
 
   apps/api:
     dependencies:
-      '@interview-app/shared':
+      '@roundtable/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@sentry/node':
@@ -233,7 +233,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@interview-app/shared':
+      '@roundtable/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@tanstack/react-query':

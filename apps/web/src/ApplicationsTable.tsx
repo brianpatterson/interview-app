@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { APPLICATION_STATUSES, type ApplicationStatus } from '@interview-app/shared';
+import { APPLICATION_STATUSES, type ApplicationStatus } from '@roundtable/shared';
 import { api } from './api';
 
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString();

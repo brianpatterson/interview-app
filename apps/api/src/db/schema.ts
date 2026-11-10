@@ -1,5 +1,5 @@
 import { boolean, index, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import { APPLICATION_STATUSES } from '@interview-app/shared';
+import { APPLICATION_STATUSES } from '@roundtable/shared';
 
 const timestamps = {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

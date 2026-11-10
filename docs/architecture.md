@@ -9,7 +9,7 @@ _Last updated: 2026-11-05_
 
 ## 1. What the system does
 
-Interview App tracks software-engineering job applications: the company, the role, a link to the
+Roundtable tracks software-engineering job applications: the company, the role, a link to the
 job description, where the application stands, and when it was created and last changed. Each
 user signs in (email and password, GitHub, or Google) and only ever sees their own applications.
 

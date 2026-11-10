@@ -65,7 +65,7 @@ export function SignInPage() {
 
   return (
     <main className="auth">
-      <h1>Interview App</h1>
+      <h1>Roundtable</h1>
       <h2>
         {mode === 'sign-in'
           ? 'Sign in'

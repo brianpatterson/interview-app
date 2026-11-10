@@ -8,10 +8,10 @@ RUN npm install --global pnpm@12.16.1
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/
 COPY packages/shared/package.json packages/shared/
-RUN pnpm install --frozen-lockfile --filter @interview-app/api...
+RUN pnpm install --frozen-lockfile --filter @roundtable/api...
 COPY packages/shared packages/shared
 COPY apps/api apps/api
-RUN pnpm --filter @interview-app/api build
+RUN pnpm --filter @roundtable/api build
 
 # Runtime: just Node, the bundle and the SQL migrations. No package manager, no node_modules.
 FROM node:26-slim

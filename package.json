@@ -1,5 +1,5 @@
 {
-  "name": "interview-app",
+  "name": "roundtable",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,8 +11,8 @@
     "db:up": "docker compose up -d db",
     "db:down": "docker compose down",
     "test": "pnpm -r test",
-    "db:generate": "pnpm --filter @interview-app/api db:generate",
-    "db:migrate": "pnpm --filter @interview-app/api db:migrate",
+    "db:generate": "pnpm --filter @roundtable/api db:generate",
+    "db:migrate": "pnpm --filter @roundtable/api db:migrate",
     "check:deps": "node scripts/check-dependencies-doc.ts",
     "check": "pnpm lint && prettier --check . && pnpm typecheck && pnpm check:deps && pnpm test"
   },

@@ -15,7 +15,7 @@ const envSchema = z
     GOOGLE_CLIENT_SECRET: z.string().optional(),
     /** Resend API key (sending access only). Blank in development: emails go to the log. */
     RESEND_API_KEY: z.string().optional(),
-    /** Sender, e.g. `Interview App <no-reply@mail.example.com>`, on a domain verified in Resend. */
+    /** Sender, e.g. `Roundtable <no-reply@mail.example.com>`, on a domain verified in Resend. */
     EMAIL_FROM: z.string().optional(),
     /** Sentry project DSN (ADR-0019). Blank: errors only go to the log. */
     SENTRY_DSN: z.string().optional(),

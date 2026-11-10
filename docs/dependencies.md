@@ -29,9 +29,9 @@ Format: each package name appears once, in backticks, in the first column.
 
 ## Shared (`packages/shared`)
 
-| Package                 | Purpose                                             | Alternative                      | Why this one                                                     |
-| ----------------------- | --------------------------------------------------- | -------------------------------- | ---------------------------------------------------------------- |
-| `@interview-app/shared` | Workspace package: API contract (schemas and types) | Duplicating types in web and api | One source of truth. [ADR-0005](adr/0005-shared-zod-contract.md) |
+| Package              | Purpose                                             | Alternative                      | Why this one                                                     |
+| -------------------- | --------------------------------------------------- | -------------------------------- | ---------------------------------------------------------------- |
+| `@roundtable/shared` | Workspace package: API contract (schemas and types) | Duplicating types in web and api | One source of truth. [ADR-0005](adr/0005-shared-zod-contract.md) |
 
 (`zod` is also a dependency of `packages/shared`; see above.)
 
