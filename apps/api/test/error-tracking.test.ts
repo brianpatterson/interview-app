@@ -1,6 +1,8 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { ErrorEvent } from '@sentry/node';
-import { initErrorTracking, scrubEvent, Sentry } from '../src/error-tracking.js';
+import { initErrorTracking, redactQueryParams, scrubEvent, Sentry } from '../src/error-tracking.js';
+import { buildApp } from '../src/app.js';
+import { createDb } from '../src/db/index.js';
 import { env, setupTestApp, signUp } from './helpers.js';
 
 describe('scrubEvent', () => {
@@ -20,6 +22,25 @@ describe('scrubEvent', () => {
       url: 'https://example.com/api/auth/verify-email',
       headers: { 'user-agent': 'test' },
     });
+  });
+});
+
+describe('redactQueryParams', () => {
+  it("drops a Drizzle error's parameter values but keeps the SQL and the stack", () => {
+    const stack =
+      'Error: Failed query: select * from "sessions" where "token" = $1\n' +
+      'params: secret-token,other\n' +
+      '    at NodePgPreparedQuery.queryWithCache (session.js:41:11)';
+
+    expect(redactQueryParams(stack)).toBe(
+      'Error: Failed query: select * from "sessions" where "token" = $1\n' +
+        'params: [redacted]\n' +
+        '    at NodePgPreparedQuery.queryWithCache (session.js:41:11)',
+    );
+    expect(redactQueryParams('Failed query: select 1\nparams: a\nb')).toBe(
+      'Failed query: select 1\nparams: [redacted]',
+    );
+    expect(redactQueryParams('some other error')).toBe('some other error');
   });
 });
 
@@ -80,6 +101,42 @@ describe('error reporting', () => {
     expect(event).toBeDefined();
     // (Not the whole event: it includes this file's source lines as context, which say 'leak'.)
     expect(JSON.stringify(event!.request ?? {})).not.toContain('leak');
+    await t.close();
+  });
+
+  it('keeps query parameters, like a session token, out of database errors', async () => {
+    // Sign up on the working database to get a real session cookie.
+    const t = setupTestApp();
+    await t.migrate();
+    await t.reset();
+    const { cookie } = await signUp(t);
+    const token = decodeURIComponent(cookie.match(/session_token=([^;.]+)/)?.[1] ?? '');
+    expect(token).not.toBe('');
+
+    // Same request against an unreachable database: Better Auth's session lookup fails, and
+    // Drizzle's error message ends with the query's parameters (here, the raw token).
+    const dead = createDb('postgres://app:app@localhost:1/nowhere');
+    const broken = buildApp(dead.db, env, { logger: false, sendEmail: async () => {} });
+
+    const res = await broken.inject({
+      method: 'GET',
+      url: '/api/applications',
+      headers: { cookie },
+    });
+
+    expect(res.statusCode).toBe(500);
+    await Sentry.flush(2000);
+
+    const event = events.find((e) =>
+      e.exception?.values?.some((v) => v.value?.startsWith('Failed query:')),
+    );
+
+    expect(event).toBeDefined();
+    expect(JSON.stringify(event)).not.toContain(token);
+    // The SQL itself stays: it's what tells you which query failed.
+    expect(JSON.stringify(event)).toContain('from \\"sessions\\"');
+    await broken.close();
+    await dead.pool.end();
     await t.close();
   });
 
