@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/node';
 import type { Env } from './env.js';
+import { causeChain, describeError, postgresFields, redactQueryParams } from './redact.js';
 
 /**
  * Error tracking with Sentry (ADR-0019): unexpected errors (5xx, crashes in auth, failed email
@@ -29,6 +30,9 @@ export function initErrorTracking(env: Env, overrides: Partial<Sentry.NodeOption
       databaseQueryData: false,
       stackFrameVariables: false,
     },
+    // No breadcrumbs from console.*: libraries (Better Auth) console.error whole error objects,
+    // query parameters included. Our own logs go through pino, not the console.
+    integrations: (defaults) => defaults.filter((integration) => integration.name !== 'Console'),
     beforeSend: scrubEvent,
     ...overrides,
   });
@@ -41,7 +45,7 @@ export function initErrorTracking(env: Env, overrides: Partial<Sentry.NodeOption
  * Removes secrets that can ride along in a request: query strings carry one-time tokens
  * (`/verify-email?token=…`, which signs the holder in), and headers can carry cookies.
  */
-export function scrubEvent<T extends Sentry.ErrorEvent>(event: T): T {
+export function scrubEvent<T extends Sentry.ErrorEvent>(event: T, hint?: Sentry.EventHint): T {
   const request = event.request;
 
   if (request) {
@@ -55,6 +59,29 @@ export function scrubEvent<T extends Sentry.ErrorEvent>(event: T): T {
         if (/^(cookie|authorization|x-forwarded-for)$/i.test(name)) delete request.headers[name];
       }
     }
+  }
+
+  // Database query parameters can be credentials (see redact.ts). With the original error at
+  // hand, each exception in the chain is matched to its error and gets the values' shapes;
+  // anything unmatched still loses its values.
+  const original = hint?.originalException instanceof Error ? hint.originalException : undefined;
+
+  const described = new Map(
+    (original ? causeChain(original) : []).map((e) => [e.message, describeError(e).message]),
+  );
+
+  for (const exception of event.exception?.values ?? []) {
+    if (exception.value) {
+      exception.value = described.get(exception.value) ?? redactQueryParams(exception.value);
+    }
+  }
+
+  const postgres = original && postgresFields(original);
+
+  if (postgres) event.contexts = { ...event.contexts, postgres };
+
+  for (const breadcrumb of event.breadcrumbs ?? []) {
+    if (breadcrumb.message) breadcrumb.message = redactQueryParams(breadcrumb.message);
   }
 
   return event;
