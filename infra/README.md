@@ -270,7 +270,7 @@ callback is `https://<domain>/api/auth/callback/<provider>`.
 
 1. GitHub → **Settings** → **Developer settings** → **OAuth Apps** → **New OAuth App** (an
    OAuth App, not a GitHub App).
-   - Application name: `Interview App`
+   - Application name: `Roundtable`
    - Homepage URL: `https://<domain>`
    - Authorization callback URL: `https://<domain>/api/auth/callback/github`
 2. **Register application**, then **Generate a new client secret**. Keep the page open: the
@@ -281,9 +281,9 @@ An OAuth App allows one callback URL, so local development needs a second app wi
 
 ### Google
 
-1. [Google Cloud console](https://console.cloud.google.com) → create a project (`Interview App`).
+1. [Google Cloud console](https://console.cloud.google.com) → create a project (`Roundtable`).
 2. **Google Auth Platform** (formerly "OAuth consent screen") → **Get started**:
-   - App name `Interview App`, your email as the support and developer contact.
+   - App name `Roundtable`, your email as the support and developer contact.
    - Audience: **External**.
 3. **Clients** → **Create client** → **Web application**:
    - Authorized JavaScript origins: `https://<domain>` (and `http://localhost:5173` for development)
