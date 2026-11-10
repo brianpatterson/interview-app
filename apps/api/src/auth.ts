@@ -6,6 +6,7 @@ import type { Db } from './db/index.js';
 import { accounts, sessions, users, verifications } from './db/schema.js';
 import type { SendEmail } from './email.js';
 import type { Env } from './env.js';
+import { betterAuthLogger } from './logging.js';
 
 export type { AuthProvider };
 
@@ -38,6 +39,7 @@ export function createAuth(
   db: Db,
   env: Env,
   sendEmail: SendEmail,
+  log: Parameters<typeof betterAuthLogger>[0],
   onUnexpectedError: (error: Error) => void = () => {},
 ) {
   return betterAuth({
@@ -112,6 +114,8 @@ export function createAuth(
         );
       },
     },
+    // Through our logger (and its redaction), not straight to the console.
+    logger: betterAuthLogger(log),
     telemetry: { enabled: false },
   });
 }

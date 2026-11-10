@@ -253,6 +253,9 @@ flowchart LR
   strings and database query parameters (a failed session lookup's would be the session token)
   stripped, and no console breadcrumbs
   ([ADR-0019](adr/0019-monitoring-and-error-tracking.md)).
+- **Logs:** JSON lines from pino (Fastify's logger) on stdout, kept by Docker. Better Auth logs
+  through the same logger. Errors are logged as type, message and stack only, and every line is
+  scrubbed of database query parameters before it's written (`src/logging.ts`, `src/redact.ts`).
 - **Disposable server:** IPs and the data volume are separate OpenTofu resources, so the server
   can be replaced at any time ([infra/README.md](../infra/README.md)).
 - **Infrastructure state:** OpenTofu state is in R2, encrypted on the operator's machine before

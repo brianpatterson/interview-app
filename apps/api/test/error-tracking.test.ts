@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { ErrorEvent } from '@sentry/node';
-import { initErrorTracking, redactQueryParams, scrubEvent, Sentry } from '../src/error-tracking.js';
+import { initErrorTracking, scrubEvent, Sentry } from '../src/error-tracking.js';
+import { redactQueryParams } from '../src/redact.js';
 import { buildApp } from '../src/app.js';
 import { createDb } from '../src/db/index.js';
 import { env, setupTestApp, signUp } from './helpers.js';

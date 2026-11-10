@@ -6,13 +6,24 @@ import type { Db } from './db/index.js';
 import { mailerFromEnv, type SendEmail } from './email.js';
 import { limitedMailer } from './email-limits.js';
 import { Sentry } from './error-tracking.js';
+import { loggerOptions } from './logging.js';
 import type { Env } from './env.js';
 import { applicationRoutes } from './routes/applications.js';
 import { authRoutes } from './routes/auth.js';
 
-export function buildApp(db: Db, env: Env, opts: { logger?: boolean; sendEmail?: SendEmail } = {}) {
+export interface BuildAppOptions {
+  logger?: boolean;
+  /** Where log lines go instead of stdout (tests read them). */
+  logStream?: { write(line: string): void };
+  sendEmail?: SendEmail;
+}
+
+export function buildApp(db: Db, env: Env, opts: BuildAppOptions = {}) {
   // Behind Caddy in production (and Vite in dev): use X-Forwarded-* for the client IP and protocol.
-  const app = Fastify({ logger: opts.logger ?? true, trustProxy: true });
+  const app = Fastify({
+    logger: opts.logger === false ? false : { ...loggerOptions, stream: opts.logStream },
+    trustProxy: true,
+  });
 
   const sendEmail = limitedMailer(
     db,
@@ -21,7 +32,7 @@ export function buildApp(db: Db, env: Env, opts: { logger?: boolean; sendEmail?:
     app.log,
   );
 
-  const auth = createAuth(db, env, sendEmail, (error) => {
+  const auth = createAuth(db, env, sendEmail, app.log, (error) => {
     app.log.error({ err: error }, 'Unexpected error in auth');
     Sentry.captureException(error);
   });

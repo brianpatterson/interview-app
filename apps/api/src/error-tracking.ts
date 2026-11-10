@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/node';
 import type { Env } from './env.js';
+import { redactQueryParams } from './redact.js';
 
 /**
  * Error tracking with Sentry (ADR-0019): unexpected errors (5xx, crashes in auth, failed email
@@ -60,9 +61,7 @@ export function scrubEvent<T extends Sentry.ErrorEvent>(event: T): T {
     }
   }
 
-  // Drizzle's DrizzleQueryError message is "Failed query: <sql>\nparams: <values>". The values
-  // can be credentials: Better Auth looks sessions up by the raw token, so a failed lookup would
-  // send a live session token. Keep the SQL (it says which query failed); drop the values.
+  // Database query parameters can be credentials (see redact.ts).
   for (const exception of event.exception?.values ?? []) {
     if (exception.value) exception.value = redactQueryParams(exception.value);
   }
@@ -72,13 +71,6 @@ export function scrubEvent<T extends Sentry.ErrorEvent>(event: T): T {
   }
 
   return event;
-}
-
-/** Everything after "params: " in a Drizzle query error, up to any stack frames that follow. */
-const DRIZZLE_PARAMS = /(Failed query: [\s\S]*?\nparams: )(?:(?!\n\s+at )[\s\S])*/g;
-
-export function redactQueryParams(text: string): string {
-  return text.replace(DRIZZLE_PARAMS, '$1[redacted]');
 }
 
 export { Sentry };
