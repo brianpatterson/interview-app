@@ -1,5 +1,5 @@
 {
-  "name": "@interview-app/shared",
+  "name": "@roundtable/shared",
   "private": true,
   "type": "module",
   "exports": {

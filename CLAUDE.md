@@ -1,4 +1,4 @@
-# Interview App: agent instructions
+# Roundtable: agent instructions
 
 Full-stack TypeScript monorepo for tracking job applications. Also a learning project for systems
 design, a "software factory" workflow, and real production deploys, so **documentation is part of

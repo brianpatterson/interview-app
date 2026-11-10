@@ -1,6 +1,6 @@
 import Fastify from 'fastify';
 import { sql } from 'drizzle-orm';
-import type { HealthResponse } from '@interview-app/shared';
+import type { HealthResponse } from '@roundtable/shared';
 import { createAuth, enabledProviders } from './auth.js';
 import type { Db } from './db/index.js';
 import { mailerFromEnv, type SendEmail } from './email.js';

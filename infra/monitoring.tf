@@ -5,7 +5,7 @@
 # Uptime: every 3 minutes (the free plan's fastest), from several regions. Alerts only after
 # the check fails from more than one location, so a single blip doesn't page anyone.
 resource "betteruptime_monitor" "app" {
-  pronounceable_name = "Interview App"
+  pronounceable_name = "Roundtable"
   url                = "https://${var.domain}/api/health"
   # "Up" means the API answered and could reach Postgres, not just that Caddy is serving pages.
   monitor_type     = "keyword"

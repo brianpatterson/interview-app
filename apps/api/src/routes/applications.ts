@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { and, desc, eq } from 'drizzle-orm';
 import { fromNodeHeaders } from 'better-auth/node';
 import { z } from 'zod';
-import { createApplicationSchema, updateApplicationSchema } from '@interview-app/shared';
+import { createApplicationSchema, updateApplicationSchema } from '@roundtable/shared';
 import type { Auth } from '../auth.js';
 import type { Db } from '../db/index.js';
 import { applications } from '../db/schema.js';

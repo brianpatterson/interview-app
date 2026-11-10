@@ -5,7 +5,7 @@ export function App({ userName, onSignOut }: { userName: string; onSignOut: () =
   return (
     <main>
       <header className="app-header">
-        <h1>Interview App</h1>
+        <h1>Roundtable</h1>
         <span>
           {userName} ·{' '}
           <button className="link" onClick={onSignOut}>

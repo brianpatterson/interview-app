@@ -41,7 +41,7 @@ How the API talks to Resend:
 ## Decision
 
 - **Provider:** Resend, region us-east-1 (the droplet is in New York).
-- **Sending domain:** `mail.<domain>`, From `Interview App <no-reply@mail.<domain>>`. Resend
+- **Sending domain:** `mail.<domain>`, From `Roundtable <no-reply@mail.<domain>>`. Resend
   recommends a subdomain: its sending reputation is separate from the apex, which stays free
   for other mail later (for example a personal inbox).
 - **DNS, in OpenTofu (`infra/email.tf`):** the DKIM key Resend issues, two CNAMEs

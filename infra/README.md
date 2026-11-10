@@ -5,6 +5,10 @@ cloud firewall, and Cloudflare DNS. Why it looks like this:
 [ADR-0012](../docs/adr/0012-hosting-single-vps.md) (single VPS) and
 [ADR-0013](../docs/adr/0013-digitalocean-instead-of-hetzner.md) (DigitalOcean).
 
+The app is called Roundtable, but three server-level names keep the original `interview-app`: the
+data volume, the `/opt/interview-app` path and the `interview-app-prod` Compose project. Renaming
+them means downtime or a new server ([ADR-0020](../docs/adr/0020-rename-to-roundtable.md)).
+
 ## Prerequisites
 
 1. `brew install opentofu doctl`
@@ -112,10 +116,10 @@ cd infra
 ssh ops@$(tofu output -raw ipv4) 'bash -s -- roundtableapp.us' < ../deploy/init-env.sh
 
 # 2. GitHub environment that holds the deploy credentials. Deploys only from main.
-gh api -X PUT repos/brianpatterson/interview-app/environments/production \
+gh api -X PUT repos/brianpatterson/roundtable/environments/production \
   -F 'deployment_branch_policy[protected_branches]=false' \
   -F 'deployment_branch_policy[custom_branch_policies]=true'
-gh api -X POST repos/brianpatterson/interview-app/environments/production/deployment-branch-policies \
+gh api -X POST repos/brianpatterson/roundtable/environments/production/deployment-branch-policies \
   -f name=main -f type=branch
 
 # 3. Deploy key and pinned host key from OpenTofu, plus non-secret settings.
@@ -172,10 +176,10 @@ failed run emails you.
    without `--body` prompts for the value, so paste the two R2 values from step 2 there:
 
    ```bash
-   gh api -X PUT repos/brianpatterson/interview-app/environments/backups \
+   gh api -X PUT repos/brianpatterson/roundtable/environments/backups \
      -F 'deployment_branch_policy[protected_branches]=false' \
      -F 'deployment_branch_policy[custom_branch_policies]=true'
-   gh api -X POST repos/brianpatterson/interview-app/environments/backups/deployment-branch-policies \
+   gh api -X POST repos/brianpatterson/roundtable/environments/backups/deployment-branch-policies \
      -f name=main -f type=branch
    gh secret set AGE_IDENTITY --env backups < backups.agekey
    rm backups.agekey   # only after it's in your password manager
