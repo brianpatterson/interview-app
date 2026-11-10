@@ -1,5 +1,5 @@
 import type { FastifyBaseLogger, FastifyServerOptions } from 'fastify';
-import { redactQueryParamsInJson } from './redact.js';
+import { causeChain, describeError, postgresFields, redactQueryParamsInJson } from './redact.js';
 
 // A type alias, not an interface: Fastify's serializer type has an index signature, which
 // object-literal types satisfy implicitly.
@@ -7,25 +7,30 @@ type SerializedError = {
   type: string;
   message: string;
   stack: string;
+  /** Postgres's diagnostic fields (SQLSTATE code, table, constraint), when a cause has them. */
+  postgres?: ReturnType<typeof postgresFields>;
 };
 
 /**
  * Logs an error as its type, message and stack, with every `cause` folded in, as pino's default
  * does. Unlike the default, other properties are left out: Drizzle's query error carries its
- * parameters as a `params` property, which can hold a session token.
+ * parameters as a `params` property, which can hold a session token. The parameters in the
+ * message are replaced by their shapes, and Postgres's own diagnostic fields are kept.
  */
 export function serializeError(err: Error): SerializedError {
-  const messages: string[] = [];
-  const stacks: string[] = [];
-  let current: unknown = err;
+  const chain = causeChain(err).map(describeError);
 
-  while (current instanceof Error) {
-    messages.push(current.message);
-    stacks.push(current.stack ?? `${current.name}: ${current.message}`);
-    current = current.cause;
-  }
+  const serialized: SerializedError = {
+    type: err.name,
+    message: chain.map((e) => e.message).join(': '),
+    stack: chain.map((e) => e.stack).join('\ncaused by: '),
+  };
 
-  return { type: err.name, message: messages.join(': '), stack: stacks.join('\ncaused by: ') };
+  const postgres = postgresFields(err);
+
+  if (postgres) serialized.postgres = postgres;
+
+  return serialized;
 }
 
 /** Pino options for the API's logger: what's above, plus a last pass over each finished line. */

@@ -4,6 +4,7 @@ import { initErrorTracking, scrubEvent, Sentry } from '../src/error-tracking.js'
 import { redactQueryParams } from '../src/redact.js';
 import { buildApp } from '../src/app.js';
 import { createDb } from '../src/db/index.js';
+import { users } from '../src/db/schema.js';
 import { env, setupTestApp, signUp } from './helpers.js';
 
 describe('scrubEvent', () => {
@@ -35,13 +36,17 @@ describe('redactQueryParams', () => {
 
     expect(redactQueryParams(stack)).toBe(
       'Error: Failed query: select * from "sessions" where "token" = $1\n' +
-        'params: [redacted]\n' +
+        'params: <redacted>\n' +
         '    at NodePgPreparedQuery.queryWithCache (session.js:41:11)',
     );
     expect(redactQueryParams('Failed query: select 1\nparams: a\nb')).toBe(
-      'Failed query: select 1\nparams: [redacted]',
+      'Failed query: select 1\nparams: <redacted>',
     );
     expect(redactQueryParams('some other error')).toBe('some other error');
+    // Already described (by the logger or scrubEvent): left alone.
+    expect(redactQueryParams('Failed query: select 1\nparams: <redacted: uuid>')).toBe(
+      'Failed query: select 1\nparams: <redacted: uuid>',
+    );
   });
 });
 
@@ -52,8 +57,8 @@ describe('error reporting', () => {
       { ...env, SENTRY_DSN: 'https://public@o0.ingest.sentry.io/0' },
       {
         // Capture instead of sending anywhere.
-        beforeSend: (event) => {
-          events.push(scrubEvent(event));
+        beforeSend: (event, hint) => {
+          events.push(scrubEvent(event, hint));
 
           return null;
         },
@@ -134,10 +139,39 @@ describe('error reporting', () => {
 
     expect(event).toBeDefined();
     expect(JSON.stringify(event)).not.toContain(token);
+    expect(JSON.stringify(event)).toContain(`params: <redacted: string(${token.length})>`);
     // The SQL itself stays: it's what tells you which query failed.
     expect(JSON.stringify(event)).toContain('from \\"sessions\\"');
     await broken.close();
     await dead.pool.end();
+    await t.close();
+  });
+
+  it("adds Postgres's diagnostic fields to a database error, without its values", async () => {
+    const t = setupTestApp();
+    await t.migrate();
+    await t.reset();
+    const email = `dup-${crypto.randomUUID()}@example.com`;
+    const row = { id: crypto.randomUUID(), name: 'Dup', email };
+    await t.db.insert(users).values(row);
+
+    const err = await t.db
+      .insert(users)
+      .values({ ...row, id: crypto.randomUUID() })
+      .then(
+        () => undefined,
+        (error: Error) => error,
+      );
+
+    Sentry.captureException(err);
+    await Sentry.flush(2000);
+    const event = events.find((e) => e.contexts?.postgres);
+    expect(event?.contexts?.postgres).toMatchObject({
+      code: '23505',
+      table: 'users',
+      constraint: 'users_email_unique',
+    });
+    expect(JSON.stringify(event)).not.toContain(email);
     await t.close();
   });
 

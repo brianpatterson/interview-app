@@ -4,6 +4,7 @@ import { buildApp } from '../src/app.js';
 import { createDb } from '../src/db/index.js';
 import { serializeError } from '../src/logging.js';
 import { redactQueryParamsInJson } from '../src/redact.js';
+import { users } from '../src/db/schema.js';
 import { env, setupTestApp, signUp } from './helpers.js';
 
 // Drizzle's query error message ends with the query's parameters, and Better Auth looks sessions
@@ -56,7 +57,8 @@ describe('server logs during a database outage', () => {
     expect(consoleLogs).not.toContain(token);
     // Still useful: which query failed is logged, only the values are gone.
     expect(logs).toContain('Failed query: select');
-    expect(logs).toContain('params: [redacted]');
+    // The values' shapes are kept: an agent can still see what kind of value was passed.
+    expect(logs).toContain(`params: <redacted: string(${token.length})>`);
     // Better Auth's own log line now goes through our logger, not the console.
     expect(logs).toContain('[Better Auth]');
   });
@@ -76,13 +78,52 @@ describe('serializeError', () => {
 
     expect(serialized.type).toBe('Error');
     expect(serialized.message).toBe(
-      'Failed to get session: Failed query: select 1 where token = $1\nparams: secret-token: ECONNREFUSED',
+      'Failed to get session: Failed query: select 1 where token = $1\nparams: <redacted: string(12)>: ECONNREFUSED',
     );
     expect(serialized.stack).toContain('caused by: Error: Failed query');
     expect(Object.keys(serialized)).toEqual(['type', 'message', 'stack']);
     expect(
       JSON.stringify(serializeError(new DrizzleQueryError('select 1', ['secret-token']))),
     ).not.toContain('"params"');
+  });
+});
+
+describe('serializeError with a real Postgres error', () => {
+  const t = setupTestApp();
+
+  beforeAll(async () => {
+    await t.migrate();
+    await t.reset();
+  });
+  afterAll(() => t.close());
+
+  it("keeps Postgres's diagnostic fields but not the values", async () => {
+    const email = `dup-${crypto.randomUUID()}@example.com`;
+    const row = { id: crypto.randomUUID(), name: 'Dup', email };
+    await t.db.insert(users).values(row);
+
+    const err = await t.db
+      .insert(users)
+      .values({ ...row, id: crypto.randomUUID() })
+      .then(
+        () => undefined,
+        (error: Error) => error,
+      );
+
+    expect(err).toBeInstanceOf(Error);
+    const serialized = serializeError(err!);
+
+    expect(serialized.postgres).toEqual({
+      code: '23505',
+      severity: 'ERROR',
+      schema: 'public',
+      table: 'users',
+      constraint: 'users_email_unique',
+      routine: expect.any(String),
+    });
+    expect(serialized.message).toContain('params: <redacted: uuid, string(3), string(');
+    // Postgres's `detail` ("Key (email)=(…) already exists") and the params hold the email.
+    expect(JSON.stringify(serialized)).not.toContain(email);
   });
 });
 
@@ -100,11 +141,14 @@ describe('redactQueryParamsInJson', () => {
     const redacted = redactQueryParamsInJson(line);
 
     expect(redacted).not.toContain('secret-token');
+    // Already described by the serializer: left alone.
+    const described = JSON.stringify({ msg: 'Failed query: select 1\nparams: <redacted: uuid>' });
+    expect(redactQueryParamsInJson(described)).toBe(described);
     expect(JSON.parse(redacted)).toEqual({
-      msg: 'Failed query: select "token" from "sessions" where "token" = $1\nparams: [redacted]',
+      msg: 'Failed query: select "token" from "sessions" where "token" = $1\nparams: <redacted>',
       err: {
         stack:
-          'Error: Failed query: select 1\nparams: [redacted]\n    at NodePgPreparedQuery (session.js:41:11)',
+          'Error: Failed query: select 1\nparams: <redacted>\n    at NodePgPreparedQuery (session.js:41:11)',
       },
       other: 'untouched',
     });
