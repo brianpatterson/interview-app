@@ -30,15 +30,26 @@ export const updateApplicationSchema = createApplicationSchema
 export type UpdateApplicationInput = z.infer<typeof updateApplicationSchema>;
 
 /** An application as returned by the API (dates are ISO 8601 strings). */
-export interface Application {
-  id: string;
-  company: string;
-  jobTitle: string;
-  jobUrl: string | null;
-  status: ApplicationStatus;
-  createdAt: string;
-  updatedAt: string;
-}
+export const applicationSchema = z.object({
+  id: z.string(),
+  company: z.string(),
+  jobTitle: z.string(),
+  jobUrl: z.string().nullable(),
+  status: applicationStatusSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type Application = z.infer<typeof applicationSchema>;
+
+export const authProviderSchema = z.enum(['github', 'google']);
+
+export type AuthProvider = z.infer<typeof authProviderSchema>;
+
+/** GET /api/auth-config: which social sign-in providers this deployment has configured. */
+export const authConfigSchema = z.object({ providers: z.array(authProviderSchema) });
+
+export type AuthConfig = z.infer<typeof authConfigSchema>;
 
 export interface HealthResponse {
   ok: boolean;

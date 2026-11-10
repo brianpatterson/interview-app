@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { authConfigSchema, type AuthProvider } from '@roundtable/shared';
 import { authClient } from './auth-client';
 
 type Mode = 'sign-in' | 'sign-up' | 'forgot';
 
-const providerLabels = { github: 'GitHub', google: 'Google' } as const;
+const providerLabels: Record<AuthProvider, string> = { github: 'GitHub', google: 'Google' };
 
 export function SignInPage() {
   const [mode, setMode] = useState<Mode>('sign-in');
@@ -28,10 +29,7 @@ export function SignInPage() {
 
   const config = useQuery({
     queryKey: ['auth-config'],
-    queryFn: async () =>
-      (await fetch('/api/auth-config')).json() as Promise<{
-        providers: (keyof typeof providerLabels)[];
-      }>,
+    queryFn: async () => authConfigSchema.parse(await (await fetch('/api/auth-config')).json()),
   });
 
   async function onSubmit(e: FormEvent) {

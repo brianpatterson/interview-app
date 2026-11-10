@@ -1,4 +1,5 @@
-import { betterAuth } from 'better-auth';
+import type { AuthProvider } from '@roundtable/shared';
+import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import { APIError } from 'better-auth/api';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import type { Db } from './db/index.js';
@@ -6,7 +7,7 @@ import { accounts, sessions, users, verifications } from './db/schema.js';
 import type { SendEmail } from './email.js';
 import type { Env } from './env.js';
 
-export type AuthProvider = 'github' | 'google';
+export type { AuthProvider };
 
 export function enabledProviders(env: Env): AuthProvider[] {
   const providers: AuthProvider[] = [];
@@ -18,11 +19,26 @@ export function enabledProviders(env: Env): AuthProvider[] {
   return providers;
 }
 
+/** Only the providers whose credentials are configured (same rule as enabledProviders). */
+function socialProviders(env: Env): NonNullable<BetterAuthOptions['socialProviders']> {
+  const providers: NonNullable<BetterAuthOptions['socialProviders']> = {};
+
+  if (env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET) {
+    providers.github = { clientId: env.GITHUB_CLIENT_ID, clientSecret: env.GITHUB_CLIENT_SECRET };
+  }
+
+  if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
+    providers.google = { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET };
+  }
+
+  return providers;
+}
+
 export function createAuth(
   db: Db,
   env: Env,
   sendEmail: SendEmail,
-  onUnexpectedError: (error: unknown) => void = () => {},
+  onUnexpectedError: (error: Error) => void = () => {},
 ) {
   return betterAuth({
     baseURL: env.BETTER_AUTH_URL,
@@ -63,14 +79,7 @@ export function createAuth(
         });
       },
     },
-    socialProviders: {
-      ...(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET
-        ? { github: { clientId: env.GITHUB_CLIENT_ID, clientSecret: env.GITHUB_CLIENT_SECRET } }
-        : {}),
-      ...(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
-        ? { google: { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET } }
-        : {}),
-    },
+    socialProviders: socialProviders(env),
     // Let a user who signed up with email later sign in with GitHub/Google using the same email,
     // instead of creating a second account. Only when BOTH sides have verified it: the provider
     // (Better Auth's default without `trustedProviders`) and our account
@@ -98,7 +107,9 @@ export function createAuth(
     onAPIError: {
       onError: (error) => {
         if (error instanceof APIError && error.statusCode < 500) return;
-        onUnexpectedError(error);
+        onUnexpectedError(
+          error instanceof Error ? error : new Error('Non-Error thrown in auth', { cause: error }),
+        );
       },
     },
     telemetry: { enabled: false },

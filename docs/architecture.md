@@ -121,7 +121,10 @@ accepted`, plus the terminal states `rejected` and `withdrawn`. Transitions aren
 ## 5. API
 
 All routes are JSON under `/api`. Request bodies are validated with the shared Zod schemas
-([ADR-0005](adr/0005-shared-zod-contract.md)).
+([ADR-0005](adr/0005-shared-zod-contract.md)). The web client parses application and
+`/api/auth-config` responses with shared schemas too (`applicationSchema`, `authConfigSchema`),
+so a contract mismatch fails at the boundary instead of deep in the UI; API tests check that
+real responses parse.
 
 | Method   | Path                    | Auth    | Success | Errors                                                                |
 | -------- | ----------------------- | ------- | ------- | --------------------------------------------------------------------- |

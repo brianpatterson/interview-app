@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 import { resendMailer } from '../src/email.js';
 import { loadEnv } from '../src/env.js';
 
@@ -10,7 +11,7 @@ const baseEnv = {
 
 describe('resendMailer', () => {
   it('posts the email to Resend with the API key', async () => {
-    const fetchMock = vi.fn(async () => new Response('{"id":"1"}', { status: 200 }));
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response('{"id":"1"}', { status: 200 }));
     await resendMailer(
       're_test',
       'App <no-reply@mail.example.com>',
@@ -21,10 +22,11 @@ describe('resendMailer', () => {
       subject: 'Hi',
       text: 'Body',
     });
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.lastCall ?? [];
     expect(url).toBe('https://api.resend.com/emails');
-    expect(new Headers(init.headers).get('authorization')).toBe('Bearer re_test');
-    expect(JSON.parse(init.body as string)).toEqual({
+    expect(new Headers(init?.headers).get('authorization')).toBe('Bearer re_test');
+    expect(JSON.parse(z.string().parse(init?.body))).toEqual({
       from: 'App <no-reply@mail.example.com>',
       to: ['a@example.com'],
       subject: 'Hi',

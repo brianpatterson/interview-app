@@ -1,4 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { authConfigSchema } from '@roundtable/shared';
+import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { accounts, users } from '../src/db/schema.js';
 import { env, setupTestApp, signUp, signUpUnverified, takeEmail, type TestApp } from './helpers.js';
@@ -15,13 +17,10 @@ interface FakeGitHubUser {
 function fakeGitHub(user: FakeGitHubUser) {
   const realFetch = globalThis.fetch;
   vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-
-    const json = (body: unknown) =>
-      new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
+    const { url } = new Request(input);
 
     if (url.startsWith('https://github.com/login/oauth/access_token')) {
-      return json({
+      return Response.json({
         access_token: 'gho_fake',
         token_type: 'bearer',
         scope: 'read:user,user:email',
@@ -29,7 +28,7 @@ function fakeGitHub(user: FakeGitHubUser) {
     }
 
     if (url === 'https://api.github.com/user') {
-      return json({
+      return Response.json({
         id: user.id,
         login: user.login,
         name: user.login,
@@ -38,7 +37,7 @@ function fakeGitHub(user: FakeGitHubUser) {
       });
     }
 
-    if (url === 'https://api.github.com/user/emails') return json(user.emails);
+    if (url === 'https://api.github.com/user/emails') return Response.json(user.emails);
 
     return realFetch(input, init);
   });
@@ -67,7 +66,7 @@ async function signInWithGitHub(t: TestApp) {
   return {
     authorizeUrl,
     status: callback.statusCode,
-    location: callback.headers.location as string | undefined,
+    location: z.string().optional().parse(callback.headers.location),
     signedIn: callback.cookies.some((c) => c.name.endsWith('session_token') && c.value),
   };
 }
@@ -88,7 +87,7 @@ describe('GitHub sign-in', () => {
 
   it('lists GitHub as a provider once its credentials are set', async () => {
     const res = await t.app.inject({ method: 'GET', url: '/api/auth-config' });
-    expect(res.json()).toEqual({ providers: ['github'] });
+    expect(authConfigSchema.parse(res.json())).toEqual({ providers: ['github'] });
   });
 
   it('sends the browser to GitHub with our callback URL, state and the email scope', async () => {

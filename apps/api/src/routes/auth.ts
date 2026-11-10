@@ -1,9 +1,10 @@
+import type { AuthConfig } from '@roundtable/shared';
 import type { FastifyInstance } from 'fastify';
 import type { Auth, AuthProvider } from '../auth.js';
 
 /** Bridges Fastify to Better Auth's Fetch-API handler for everything under /api/auth. */
 export function authRoutes(app: FastifyInstance, auth: Auth, providers: AuthProvider[]) {
-  app.get('/api/auth-config', async () => ({ providers }));
+  app.get('/api/auth-config', async (): Promise<AuthConfig> => ({ providers }));
 
   app.route({
     method: ['GET', 'POST'],

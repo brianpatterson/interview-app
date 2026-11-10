@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { Application } from '@roundtable/shared';
+import { applicationSchema, type Application } from '@roundtable/shared';
+import type { InjectOptions } from 'fastify';
 import { setupTestApp, signUp } from './helpers.js';
 
 const t = setupTestApp();
@@ -15,11 +16,14 @@ beforeEach(async () => {
 
 afterAll(() => t.close());
 
-function request(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, payload?: object) {
+// Raw request bodies, deliberately untyped by the contract: several tests send invalid input.
+type Payload = InjectOptions['payload'];
+
+function request(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, payload?: Payload) {
   return app.inject({ method, url, payload, headers: { cookie } });
 }
 
-async function create(body: object) {
+async function create(body: Payload) {
   const res = await request('POST', '/api/applications', body);
 
   return { res, json: res.json<Application>() };
@@ -36,6 +40,17 @@ describe('applications API', () => {
       status: 'applied',
     });
     expect(json.createdAt).toBe(json.updatedAt);
+  });
+
+  it('returns bodies that match the shared contract', async () => {
+    const { json: created } = await create({ company: 'Acme', jobTitle: 'SWE' });
+    const list = await request('GET', '/api/applications');
+    const updated = await request('PATCH', `/api/applications/${created.id}`, { status: 'offer' });
+
+    // The web client parses every response with these schemas, so a mismatch would break it.
+    expect(() => applicationSchema.parse(created)).not.toThrow();
+    expect(() => applicationSchema.array().parse(list.json())).not.toThrow();
+    expect(() => applicationSchema.parse(updated.json())).not.toThrow();
   });
 
   it('rejects invalid input', async () => {

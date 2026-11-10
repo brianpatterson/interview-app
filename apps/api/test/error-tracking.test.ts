@@ -14,7 +14,7 @@ describe('scrubEvent', () => {
         data: '{"password":"hunter2"}',
         headers: { Cookie: 'a=b', authorization: 'Bearer x', 'user-agent': 'test' },
       },
-    } as ErrorEvent);
+    });
 
     expect(event.request).toEqual({
       url: 'https://example.com/api/auth/verify-email',
