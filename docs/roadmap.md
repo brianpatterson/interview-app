@@ -39,6 +39,30 @@ in a hosting ADR when built.
 Cost: $6/month droplet + ~$1 volume + $0 R2 (free tier) + $0 Resend (free tier, 3,000 emails a
 month) + $0 Better Stack and Sentry (free tiers) ≈ **$7/month**, plus the domain.
 
+## Next: the API on Effect
+
+Decided in [ADR-0022](adr/0022-effect-for-the-api.md), with the evidence in the
+[spike findings](research/2026-11-effect-spike.md). Each step is its own PR, keeps `pnpm check`
+green, and updates `CLAUDE.md` and `docs/architecture.md` as it changes them:
+
+1. **Drizzle 1.0 on the current Fastify app:** bump `drizzle-orm` and `drizzle-kit` to the release
+   candidate (exact pins), convert the migrations folder once with `drizzle-kit up` (byte-identical
+   SQL), switch to `drizzle({ client })`, turn on `paramsInErrors`, and update #29's leak tests for
+   1.0's error format. Measured in the spike as 4 lines of code. It goes first because it's
+   independent of Effect and shrinks the later steps.
+2. **Foundation:** `effect` and `@effect/*` pinned exactly, Effect's language service in the
+   editor, the anti-slop Effect rules switched on, `@effect/vitest`, and an "Effect conventions"
+   section in `CLAUDE.md` built from the spike's gotchas.
+3. **Contract:** the `HttpApi` definition, written with Effect Schema, in `packages/shared`. The
+   Zod schemas stay until the web app moves (step 5).
+4. **Server:** `HttpApi` replaces Fastify. That covers the routes; the `Authorization` middleware
+   providing `CurrentUser`; Better Auth mounted with `fromWebHandler`; `@sentry/effect` with the
+   ignore marker on a shared base class for expected errors; log redaction moved to Effect's
+   logger; the leak tests ported first and passing; and the Dockerfile. Tests use the generated
+   client against `toWebHandler`.
+5. **Web:** the typed client inside TanStack Query; Zod removed.
+6. **Email as Effect services:** sending limits, Resend, and a retry on Resend's 5xx errors.
+
 ## Phase 3: The software factory
 
 The target loop:
@@ -72,7 +96,15 @@ Building blocks, in order:
 4. **Staging environment**: a second deploy target on the same VPS or a second small one. Every
    merge goes to staging first, and production follows automatically if staging is healthy.
 5. **Continuous operation**: scheduled agent runs that triage Dependabot PRs, fix flaky tests,
-   and turn production errors into tickets.
+   and turn production errors into tickets, and then into PRs with a failing test that reproduces
+   them, without a human starting the investigation. That only works if each error carries enough
+   context to reproduce it, and never any user data. Today a database error carries the SQL,
+   Postgres's own fields (`code`, `table`, `constraint`), the stack, the route and the release,
+   plus the kind of each query value (`uuid`, `string(32)`, `null`) but not the value itself
+   ([ADR-0022](adr/0022-effect-for-the-api.md)). Next: the kinds of the request body's fields on
+   every error (`jobUrl: null`, `company: string(0)`), so a validation or handler bug can be
+   reproduced from the Sentry issue alone. Agents never get real values: that would expose user
+   data and make stored text a prompt-injection path.
 6. **Security auditor**: a scheduled agent (weekly, and on any PR that touches auth, logging,
    error tracking, `infra/` or a new external service) whose only job is to find security holes.
    It has its own prompt and no stake in the code it audits. Every finding becomes a ticket with
