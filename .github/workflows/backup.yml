@@ -36,8 +36,23 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # The upstream release binary, pinned by version and SHA-256, instead of apt: the runner's
+      # Ubuntu mirrors were unreachable for a whole day (2026-11-11) and took the backup down with
+      # them. Downloading from GitHub keeps the backup's dependencies to GitHub, the droplet and R2.
+      # To upgrade: change both values; the digest is on the release asset
+      # (`gh api repos/FiloSottile/age/releases/tags/<tag> --jq '.assets[].digest'`).
       - name: Install age
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq age && age --version
+        env:
+          AGE_VERSION: v1.3.2
+          AGE_SHA256: cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10
+        run: |
+          tarball="age-$AGE_VERSION-linux-amd64.tar.gz"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$tarball" \
+            "https://github.com/FiloSottile/age/releases/download/$AGE_VERSION/$tarball"
+          echo "$AGE_SHA256  $RUNNER_TEMP/$tarball" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP"
+          sudo install -m 755 "$RUNNER_TEMP/age/age" "$RUNNER_TEMP/age/age-keygen" /usr/local/bin/
+          age --version
 
       - name: Configure SSH
         env:
