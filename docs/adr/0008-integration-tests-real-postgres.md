@@ -1,6 +1,6 @@
 # 0008. Integration tests against a real Postgres
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR-0022](0022-effect-for-the-api.md)
 - **Date:** 2026-10-28
 
 ## Context
