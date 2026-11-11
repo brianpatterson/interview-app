@@ -13,6 +13,14 @@ updates:
       prefix: chore
       include: scope
     groups:
+      # Pinned exactly and upgraded together (ADR-0022): effect/http-api is marked unstable, so
+      # any bump, even a patch, may need code changes. Listed before the catch-all group, since
+      # Dependabot puts each update in the first group that matches.
+      effect:
+        patterns: ['effect', '@effect/*', '@sentry/effect']
+      # Pinned exactly to the same 1.0 release candidate; they must move together.
+      drizzle:
+        patterns: ['drizzle-orm', 'drizzle-kit']
       npm-minor-and-patch:
         update-types: [minor, patch]
 

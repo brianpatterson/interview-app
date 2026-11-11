@@ -55,8 +55,10 @@ green, and updates `CLAUDE.md` and `docs/architecture.md` as it changes them:
    SQL), switch to `drizzle({ client })`, turn on `paramsInErrors`, and update #29's leak tests for
    1.0's error format. Measured in the spike as 4 lines of code. It goes first because it's
    independent of Effect and shrinks the later steps.
-2. **Foundation:** `effect` and `@effect/*` pinned exactly, Effect's language service in the
-   editor, the anti-slop Effect rules switched on, `@effect/vitest`, and an "Effect conventions"
+2. ✅ **Foundation:** `effect` and `@effect/*` pinned exactly and grouped in Dependabot. Effect's
+   language service runs as `pnpm check:effect` (`@effect/tsgo`, since TypeScript 7 can't load
+   the classic plugin), in `pnpm check` and CI, and works in editors through the same tsconfig
+   plugin entry. Also the anti-slop Effect rules, `@effect/vitest`, and an "Effect conventions"
    section in `CLAUDE.md` built from the spike's gotchas.
 3. **Contract:** the `HttpApi` definition, written with Effect Schema, in `packages/shared`. The
    Zod schemas stay until the web app moves (step 5).

@@ -46,6 +46,10 @@ jobs:
         run: pnpm prettier --check .
       - name: Typecheck
         run: pnpm typecheck
+      # Effect-specific mistakes stock tsc can't see (an Effect never run, `yield` without `*`).
+      # Annotated inline on the PR.
+      - name: Effect diagnostics
+        run: pnpm check:effect --format github-actions
       - name: Dependency register is complete
         run: pnpm check:deps
       - name: Schema and migrations are in sync

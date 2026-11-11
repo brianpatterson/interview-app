@@ -15,6 +15,10 @@
     {
       "name": "anti-slop",
       "specifier": "./tools/oxlint/anti-slop/index.ts"
+    },
+    {
+      "name": "anti-slop-effect",
+      "specifier": "./tools/oxlint/anti-slop/effect/index.ts"
     }
   ],
   "rules": {
@@ -269,6 +273,16 @@
           }
         ],
         "eslint/no-with": "error"
+      }
+    },
+    {
+      "files": ["apps/api/**"],
+      "rules": {
+        "anti-slop-effect/no-manual-effect-error-tag": "error",
+        "anti-slop-effect/no-manual-tag-comparison": "error",
+        "anti-slop-effect/no-manual-tagged-construction": "error",
+        "anti-slop-effect/no-service-constructor-imports": "error",
+        "anti-slop-effect/prefer-effect-match": "error"
       }
     }
   ]

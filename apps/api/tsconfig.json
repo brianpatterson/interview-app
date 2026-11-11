@@ -1,5 +1,17 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "types": ["node"] },
+  "compilerOptions": {
+    "types": ["node"],
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        // ADR-0022 accepts Effect's unstable APIs (effect/http-api, @effect/vitest) with exact pins,
+        // so this rule would only flag every deliberate use. Everything else fails `check:effect`.
+        "diagnosticSeverity": {
+          "unstableApiUsage": "off"
+        }
+      }
+    ]
+  },
   "include": ["src", "test", "drizzle.config.ts", "vitest.config.ts", "build.ts"]
 }
