@@ -59,6 +59,21 @@ Format: each package name appears once, in backticks, in the first column.
 | `@types/react`     | Types for React       | (none)      | React doesn't ship its own types.                      |
 | `@types/react-dom` | Types for `react-dom` | (none)      | Same.                                                  |
 
+## Overrides (`pnpm-workspace.yaml`)
+
+Forced versions of indirect dependencies, each a security fix the direct dependency hasn't shipped.
+Remove an override as soon as its reason is gone.
+
+- **`@esbuild-kit/core-utils>esbuild`: `^0.25.0`.** drizzle-kit (0.31, and still in 1.0.0-rc.5)
+  loads TypeScript configs through the deprecated `@esbuild-kit/esm-loader`, which pins esbuild
+  `~0.18.20`. Versions below 0.25.0 have
+  [GHSA-67mh-4wv8-2f99](https://github.com/advisories/GHSA-67mh-4wv8-2f99) (any website can read
+  esbuild's dev server). drizzle-kit never starts that server and isn't in the production image, so
+  this was never exploitable here, but it kept a Dependabot alert open. `@esbuild-kit/core-utils`
+  only calls `transform`/`transformSync`, which 0.25 keeps. Checked by running `db:generate` with no
+  change (no drift) and with a schema change (correct SQL). Remove when drizzle-kit drops
+  `@esbuild-kit`.
+
 ## Tools and infrastructure (outside package.json)
 
 These aren't checked by CI. Keep them current by hand.
