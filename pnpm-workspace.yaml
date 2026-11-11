@@ -3,3 +3,9 @@ packages:
   - packages/*
 allowBuilds:
   esbuild: true
+overrides:
+  # drizzle-kit (0.31 and 1.0-rc) loads TS configs through the deprecated @esbuild-kit/esm-loader,
+  # which pins esbuild ~0.18.20: below 0.25.0, the fix for GHSA-67mh-4wv8-2f99 (any website can
+  # read esbuild's dev server). It only calls transform/transformSync, which 0.25 keeps.
+  # Remove once drizzle-kit drops @esbuild-kit. See docs/dependencies.md.
+  '@esbuild-kit/core-utils>esbuild': ^0.25.0
