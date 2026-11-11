@@ -27,7 +27,12 @@ in a hosting ADR when built.
 4. ✅ **Delivery pipeline** (live: first deploy to https://roundtableapp.us on 2026-11-05) ([ADR-0014](adr/0014-push-based-deploys.md)): on merge to `main`, GitHub Actions builds the images, tags them with the
    git SHA, and pushes them to GitHub Container Registry. A deploy job then runs migrations as a
    one-off container, rolls the API, health-checks `/api/health`, and rolls back if that fails.
-   Production is a protected GitHub Environment holding the secrets.
+   Production is a protected GitHub Environment holding the secrets. Merges that ship nothing
+   (docs, Markdown, `infra/`) don't deploy. **Later: zero-downtime deploys.** Today every deploy
+   recreates the API and Caddy, so the site is down for about 10 seconds. Instead: start the new API
+   next to the old one, switch Caddy's upstream once `/api/health` is up, then stop the old one,
+   and keep Caddy running throughout. Migrations already have to be backward-compatible with the
+   previous release, which is exactly what running both versions at once needs.
 5. ✅ **Data safety** ([ADR-0015](adr/0015-backups.md)): nightly `pg_dump` to object storage with retention, plus a **tested restore**
    (a backup you haven't restored isn't a backup). OpenTofu state is in R2 too, encrypted ([ADR-0016](adr/0016-remote-encrypted-state.md)).
 6. ✅ **Email** ([ADR-0017](adr/0017-email-resend.md)): Resend from `mail.<domain>` with

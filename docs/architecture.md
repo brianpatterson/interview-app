@@ -249,7 +249,8 @@ flowchart LR
 - **Email:** Resend's HTTP API, from `no-reply@mail.<domain>`. The API refuses to start in
   production without its key ([ADR-0017](adr/0017-email-resend.md)).
 - **Monitoring:** Better Stack checks `/api/health` (must report the database up) every 3
-  minutes from outside, and expects a ping from every nightly backup. Sentry receives unexpected
+  minutes from outside, and opens an incident only if it's still failing 60 seconds later, so a
+  deploy's ~10-second gap doesn't page anyone, and expects a ping from every nightly backup. Sentry receives unexpected
   API errors, failed email sends and the daily-email-limit alarm, with cookies, bodies, query
   strings and database query parameters (a failed session lookup's would be the session token)
   stripped, and no console breadcrumbs
@@ -273,6 +274,7 @@ sequenceDiagram
   participant S as Droplet (deploy.sh)
   Dev->>GH: PR → required checks → merge to main
   GH->>D: CI green on push to main (workflow_run)
+  D->>D: diff against the last deployed commit: only docs/Markdown/infra? stop
   D->>R: build + push api/web images tagged <git SHA>
   D->>S: SSH as deploy (pinned host key), copy compose + deploy.sh
   D->>S: docker login with this run's token (throwaway config)
@@ -286,14 +288,20 @@ sequenceDiagram
   D->>D: smoke test https://<domain>/api/health from outside
 ```
 
+Each deploy recreates the API and Caddy containers, so the site is down for about 10 seconds
+(Caddy waits for the new API to be healthy). That's why merges that only touch docs, Markdown,
+agent config or `infra/` (applied by a human with OpenTofu) don't deploy: the workflow compares
+the commit with the last successful deploy run and skips the build and deploy when nothing that
+ships changed. A failed deploy exits non-zero, so it never counts as the base, and the next merge
+deploys again. Zero-downtime deploys are on the roadmap.
+
 Rollback restores code only; migrations must stay backward-compatible with the previous release
 ([ADR-0014](adr/0014-push-based-deploys.md)). A rollback runs the previous release's migrator
 first, and the API only starts if it succeeds. One caveat from the Drizzle 1.0 upgrade: 1.0 records
 a migration's timestamp to the second, 0.45 to the millisecond, so **a migration applied by 1.0
 looks unapplied to 0.45**, which then fails re-running it. Rolling back to a 0.45 release is safe
-only while every migration in that release was applied by 0.45 itself. Production should
-qualify (every deploy runs migrations, and the third one's `email_sends` table is in use), but
-check that `drizzle.__drizzle_migrations` has three rows before deploying the upgrade. Local databases that lagged behind may not be: recreate them if a
+only while every migration in that release was applied by 0.45 itself. Production qualified:
+checked on 2026-11-11 (three rows) before 1.0 was deployed with #33. Local databases that lagged behind may not be: recreate them if a
 pre-upgrade branch fails to migrate.
 
 | Environment | Status                              | Notes                                                                                                                                                                                                                                                                                                                                                                          |
