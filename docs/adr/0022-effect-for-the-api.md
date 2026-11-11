@@ -75,9 +75,13 @@ Option 3:
   existence leaks.
 - **Migrations:** `drizzle-kit up` converts `apps/api/drizzle/` to 1.0's one-folder-per-migration
   layout once. The SQL is byte-identical (files are moved, not edited), so this is the one
-  allowed exception to "never edit a merged migration". Tested on a copy of a database the 0.45
-  migrator had migrated: the 1.0 migrator applies nothing, and the 0.45 migrator still works
-  afterwards, so a rolled-back deploy (ADR-0014) is safe.
+  allowed exception to "never edit a merged migration". On a database the 0.45 migrator had
+  fully migrated, the 1.0 migrator applies nothing and the 0.45 migrator still works afterwards.
+  **But a migration that 1.0 applies looks unapplied to 0.45** (1.0 records timestamps to the
+  second, 0.45 to the millisecond), and a rollback runs the previous release's migrator
+  (ADR-0014). So rolling back to a 0.45 release is safe only while every migration in it was
+  applied by 0.45 itself. Check production has all its migrations applied before deploying the
+  upgrade. Found in the upgrade PR (#33) by testing a database that was one migration behind.
 - **Tests:** still against the real `app_test` database (ADR-0008's point), through the
   generated client against `HttpRouter.toWebHandler`, using `@effect/vitest` (`it.live` for
   anything timing-dependent; `it.effect` runs on a simulated clock).

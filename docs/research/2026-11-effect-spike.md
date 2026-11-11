@@ -79,8 +79,11 @@ Done in a throwaway worktree off `main` (after #29), with `drizzle-orm` and `dri
   like production:
   - The 1.0 migrator recognises all three migrations and applies nothing. It adds `name` and
     `applied_at` columns to `drizzle.__drizzle_migrations` and fills them in.
-  - The 0.45 migrator then still runs without trouble, so a failed deploy that rolls the code
-    back (ADR-0014) is safe.
+  - The 0.45 migrator then still runs without trouble. **Correction (#33):** that only holds
+    for migrations 0.45 applied itself. On a database one migration behind, 1.0 applied the
+    third, and 0.45 then failed re-running it: 1.0 records timestamps to the second, 0.45 to the
+    millisecond. A rollback runs the previous release's migrator (ADR-0014), so rolling back to
+    0.45 is safe only while every migration in that release was applied by 0.45.
   - An empty database migrates from scratch, and `db:generate` reports no drift.
 - **Tests: 42 of 46 pass unchanged**, including every Better Auth test (sign-up, verification,
   sessions, OAuth account linking), so the adapter works on 1.0. The 4 failures are #29's leak
@@ -133,7 +136,9 @@ Checked 2026-11-10:
   any choice of Drizzle version.
 - **Open alert (Dependabot #2, medium, since 2026-11-03):** esbuild ≤ 0.24.2 lets websites read
   from esbuild's dev _server_. It comes only from drizzle-kit, through the deprecated
-  `@esbuild-kit/esm-loader` (esbuild 0.18.20), in both 0.31.11 and 1.0.0-rc.5. drizzle-kit is a
+  `@esbuild-kit/esm-loader` (esbuild 0.18.20), in 0.31.11. (**Correction:** an earlier version
+  said 1.0.0-rc.5 too. It doesn't: 1.0 ships bundled with no dependencies, so the upgrade removes
+  it, and #33 drops the override from #30.) drizzle-kit is a
   development CLI that doesn't run esbuild's server, and the production image is a bundle built with
   esbuild 0.28, so it isn't exploitable here. It still needs closing, either with a pnpm override or
   by dismissing it with that reason.
