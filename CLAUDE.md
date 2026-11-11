@@ -36,7 +36,7 @@ pnpm check          # lint + format check + typecheck + dependency register + te
    environments or scale limits, update `docs/architecture.md` (diagrams included) and its
    "Last updated" date.
 5. **Schema changes:** edit `schema.ts`, run `pnpm db:generate --name <what_changed>`, and commit
-   the SQL. Never edit a migration that has been merged. CI fails if the schema and migrations
+   the generated folder (`apps/api/drizzle/<timestamp>_<name>/`). Never edit a migration that has been merged. CI fails if the schema and migrations
    drift. Every migration must be **backward-compatible with the previous release**, because a
    failed deploy rolls back the code but not the database (ADR-0014). Expand/contract: add
    (nullable or defaulted) first, start using it in a later release, remove only after nothing
