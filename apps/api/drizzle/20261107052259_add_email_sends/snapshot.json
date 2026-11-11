@@ -1,0 +1,222 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "4d63f1fb-4a83-41b3-84c6-eb1c4d93109e",
+  "prevIds": [
+    "92ee05ed-b2bd-45a3-bfdf-77405f8f484e"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "email_sends"
+      ],
+      "writes": [
+        "s|tbl|public.email_sends",
+        "n|tbl|public.email_sends",
+        "e|tbl|public.email_sends",
+        "n|rel|public.email_sends",
+        "n|type|public.email_sends",
+        "n|rel|public.email_sends_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "email_sends",
+        "email_sends_recipient_kind_sent_at_idx"
+      ],
+      "writes": [
+        "s|idx|public.email_sends_recipient_kind_sent_at_idx",
+        "n|idx|public.email_sends_recipient_kind_sent_at_idx",
+        "e|idx|public.email_sends_recipient_kind_sent_at_idx",
+        "n|rel|public.email_sends_recipient_kind_sent_at_idx"
+      ],
+      "reads": [
+        "n|tbl|public.email_sends",
+        "n|sch|public",
+        "n|col|public.email_sends.recipient",
+        "n|col|public.email_sends.kind",
+        "n|col|public.email_sends.sent_at"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "email_sends",
+        "email_sends_sent_at_idx"
+      ],
+      "writes": [
+        "s|idx|public.email_sends_sent_at_idx",
+        "n|idx|public.email_sends_sent_at_idx",
+        "e|idx|public.email_sends_sent_at_idx",
+        "n|rel|public.email_sends_sent_at_idx"
+      ],
+      "reads": [
+        "n|tbl|public.email_sends",
+        "n|sch|public",
+        "n|col|public.email_sends.sent_at"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "email_sends",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "email_sends",
+        "name": "id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "gen_random_uuid()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "email_sends",
+        "name": "recipient",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "email_sends",
+        "name": "kind",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "email_sends",
+        "name": "sent_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "email_sends",
+        "name": "email_sends_recipient_kind_sent_at_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "recipient",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "kind",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "sent_at",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "email_sends",
+        "name": "email_sends_sent_at_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "sent_at",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "email_sends",
+        "name": "email_sends_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    }
+  ]
+}

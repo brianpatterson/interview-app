@@ -1,11 +1,13 @@
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
-import * as schema from './schema.js';
 
-export type Db = NodePgDatabase<typeof schema>;
+export type Db = NodePgDatabase;
 
 export function createDb(connectionString: string) {
   const pool = new pg.Pool({ connectionString });
 
-  return { db: drizzle(pool, { schema }), pool };
+  // paramsInErrors: failed queries carry their values inside the process, so error reports can
+  // show each value's kind (uuid, string(32), null). redact.ts strips the values themselves
+  // before anything is logged or sent (ADR-0022), and the leak tests check that.
+  return { db: drizzle({ client: pool, paramsInErrors: true }), pool };
 }

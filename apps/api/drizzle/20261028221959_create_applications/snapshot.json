@@ -1,0 +1,212 @@
+{
+  "type": "base",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "e8807c63-876c-4b8c-bedd-4b344954d904",
+  "prevIds": [
+    "00000000-0000-0000-0000-000000000000"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_enum",
+      "statementTarget": [
+        "enum",
+        "public",
+        "application_status"
+      ],
+      "writes": [
+        "s|enum|public.application_status",
+        "n|enum|public.application_status",
+        "e|enum|public.application_status",
+        "n|type|public.application_status"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "applications"
+      ],
+      "writes": [
+        "s|tbl|public.applications",
+        "n|tbl|public.applications",
+        "e|tbl|public.applications",
+        "n|rel|public.applications",
+        "n|type|public.applications",
+        "n|rel|public.applications_pkey"
+      ],
+      "reads": [
+        "n|sch|public",
+        "n|enum|public.application_status"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "applications",
+        "applications_updated_at_idx"
+      ],
+      "writes": [
+        "s|idx|public.applications_updated_at_idx",
+        "n|idx|public.applications_updated_at_idx",
+        "e|idx|public.applications_updated_at_idx",
+        "n|rel|public.applications_updated_at_idx"
+      ],
+      "reads": [
+        "n|tbl|public.applications",
+        "n|sch|public",
+        "n|col|public.applications.updated_at"
+      ]
+    }
+  ],
+  "ddl": [
+    {
+      "schema": "public",
+      "name": "applications",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "application_status",
+      "values": [
+        "applied",
+        "screening",
+        "interviewing",
+        "offer",
+        "accepted",
+        "rejected",
+        "withdrawn"
+      ],
+      "entityType": "enums"
+    },
+    {
+      "schema": "public",
+      "table": "applications",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "gen_random_uuid()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "applications",
+      "name": "company",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "applications",
+      "name": "job_title",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "applications",
+      "name": "job_url",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "applications",
+      "name": "status",
+      "type": "application_status",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'applied'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "applications",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "applications",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "applications",
+      "name": "applications_updated_at_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "updated_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "applications",
+      "name": "applications_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    }
+  ]
+}

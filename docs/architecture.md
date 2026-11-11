@@ -5,7 +5,7 @@
 > choice lives in [ADRs](adr/README.md). Each dependency's alternatives are in
 > [dependencies.md](dependencies.md).
 
-_Last updated: 2026-11-10_
+_Last updated: 2026-11-11_
 
 ## 1. What the system does
 
@@ -115,8 +115,9 @@ accepted`, plus the terminal states `rejected` and `withdrawn`. Transitions aren
   ([ADR-0006](adr/0006-status-enum-and-dates.md)).
 - Index `applications_user_id_updated_at_idx (user_id, updated_at DESC)` serves the only list
   query: one user's applications, newest first.
-- Source of truth: `apps/api/src/db/schema.ts`. Migrations are generated into `apps/api/drizzle/`
-  ([ADR-0004](adr/0004-drizzle-orm-and-migrations.md)).
+- Source of truth: `apps/api/src/db/schema.ts`. Migrations are generated into `apps/api/drizzle/`,
+  one folder each (`<timestamp>_<name>/migration.sql` + `snapshot.json`, Drizzle 1.0's layout)
+  ([ADR-0004](adr/0004-drizzle-orm-and-migrations.md), [ADR-0022](adr/0022-effect-for-the-api.md)).
 
 ## 5. API
 
@@ -286,7 +287,14 @@ sequenceDiagram
 ```
 
 Rollback restores code only; migrations must stay backward-compatible with the previous release
-([ADR-0014](adr/0014-push-based-deploys.md)).
+([ADR-0014](adr/0014-push-based-deploys.md)). A rollback runs the previous release's migrator
+first, and the API only starts if it succeeds. One caveat from the Drizzle 1.0 upgrade: 1.0 records
+a migration's timestamp to the second, 0.45 to the millisecond, so **a migration applied by 1.0
+looks unapplied to 0.45**, which then fails re-running it. Rolling back to a 0.45 release is safe
+only while every migration in that release was applied by 0.45 itself. Production should
+qualify (every deploy runs migrations, and the third one's `email_sends` table is in use), but
+check that `drizzle.__drizzle_migrations` has three rows before deploying the upgrade. Local databases that lagged behind may not be: recreate them if a
+pre-upgrade branch fails to migrate.
 
 | Environment | Status                              | Notes                                                                                                                                                                                                                                                                                                                                                                          |
 | ----------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

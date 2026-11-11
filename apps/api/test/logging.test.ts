@@ -80,7 +80,7 @@ describe('serializeError', () => {
     expect(serialized.message).toBe(
       'Failed to get session: Failed query: select 1 where token = $1\nparams: <redacted: string(12)>: ECONNREFUSED',
     );
-    expect(serialized.stack).toContain('caused by: Error: Failed query');
+    expect(serialized.stack).toContain('caused by: DrizzleQueryError: Failed query');
     expect(Object.keys(serialized)).toEqual(['type', 'message', 'stack']);
     expect(
       JSON.stringify(serializeError(new DrizzleQueryError('select 1', ['secret-token']))),

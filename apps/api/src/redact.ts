@@ -77,7 +77,7 @@ export function describeError(err: Error): ErrorText {
     return { message: redactQueryParams(err.message), stack: redactQueryParams(stack) };
   }
 
-  const paramSummary = describeParams(err.params);
+  const paramSummary = err.params ? describeParams(err.params) : '<redacted>';
 
   return {
     message: redactQueryParams(err.message, paramSummary),
