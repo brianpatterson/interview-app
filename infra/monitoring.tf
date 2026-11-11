@@ -12,6 +12,10 @@ resource "betteruptime_monitor" "app" {
   required_keyword = "\"db\":\"up\""
   check_frequency  = 180
   request_timeout  = 15
+  # Every deploy restarts the API and Caddy, so the site is down for about 10 seconds; a check
+  # landing in that gap opened an incident on 2026-11-11. Wait this long after a failure before
+  # opening one: deploy blips pass, a real outage still alerts about a minute later.
+  confirmation_period = 60
   # Also warns 14 days before the TLS certificate expires, i.e. if Caddy's renewals are failing.
   ssl_expiration = 14
   email          = true

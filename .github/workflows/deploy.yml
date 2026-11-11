@@ -1,6 +1,7 @@
 name: Deploy
 
-# Every green CI run on main ships to production. Manual runs (Actions → Deploy → Run workflow)
+# Every green CI run on main that changes something that ships goes to production (docs-only
+# merges are skipped; see the `changes` job). Manual runs (Actions → Deploy → Run workflow)
 # redeploy the current main, e.g. after replacing the droplet.
 on:
   workflow_run:
@@ -23,7 +24,9 @@ env:
   IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/roundtable
 
 jobs:
-  build:
+  # Every deploy restarts the API and Caddy (about 10 seconds down), so don't deploy when nothing
+  # that ships has changed since what production runs, e.g. a docs-only merge.
+  changes:
     # `branches: [main]` above matches the branch *name*, which a fork's PR can also use. Only
     # deploy CI runs from a push to this repository's main.
     if: >-
@@ -31,6 +34,49 @@ jobs:
       (github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event == 'push' &&
        github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read # find the last successful deploy run
+    outputs:
+      deploy: ${{ steps.diff.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.SHA }}
+          fetch-depth: 0
+      - id: diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          # A manual run always deploys (e.g. after replacing the droplet).
+          if [ "$EVENT" = workflow_dispatch ]; then echo "deploy=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          # What production runs: the commit of the last successful deploy run. A failed deploy
+          # rolls back and exits 1, so it never counts; a skipped one only changed non-shipping
+          # files, so production is equivalent to it.
+          base=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow deploy.yml --status success \
+            --limit 1 --json headSha --jq '.[0].headSha // empty')
+          if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "No usable previous deploy ($base): deploying."
+            echo "deploy=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          changed=$(git diff --name-only "$base" "$SHA")
+          echo "Changed since $base:"; echo "${changed:-(nothing)}"
+          # Files that never reach the server: docs, Markdown, agent config, and OpenTofu (applied
+          # by a human, not by this workflow). Anything else, including workflows, deploys.
+          shipping=$(printf '%s\n' "$changed" | grep -vE '^(docs/|\.claude/|infra/)|\.md$' | grep -v '^$' || true)
+          if [ -n "$shipping" ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Nothing that ships changed since $base; skipping the deploy."
+          fi
+
+  build:
+    needs: changes
+    if: needs.changes.outputs.deploy == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
