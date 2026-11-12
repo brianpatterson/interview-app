@@ -8,7 +8,9 @@ every change, not an afterthought.**
 
 - `apps/web`: React 19 + Vite SPA. Uses TanStack Query for server state and calls `/api/*` (Vite proxies to the API).
 - `apps/api`: Fastify 5 + Drizzle ORM + Postgres. `src/app.ts` builds the app, `src/routes/` holds routes, `src/db/schema.ts` is the schema source of truth, `src/auth.ts` configures Better Auth, `src/env.ts` validates environment variables.
-- `packages/shared`: Zod schemas and types, the API contract. Consumed as TS source.
+- `packages/shared`: the API contract, consumed as TS source. `src/index.ts` has the Zod schemas
+  the current server and web app use; `src/api.ts` (`@roundtable/shared/api`) has the same
+  contract as an Effect `HttpApi` definition, which replaces them in ADR-0022 steps 4–5.
 - `infra/`: OpenTofu for production (DigitalOcean droplet, volume, reserved IP, firewall, Cloudflare DNS) and cloud-init. See `infra/README.md`.
 - `compose.prod.yml`, `apps/*/Dockerfile`, `apps/web/Caddyfile`: the production runtime.
 - `docs/`: `architecture.md` (current state), `adr/` (decisions), `dependencies.md` (dependency register), `roadmap.md` (where this is going).
@@ -46,7 +48,9 @@ pnpm check          # lint + format + typecheck + Effect diagnostics + dependenc
    (nullable or defaulted) first, start using it in a later release, remove only after nothing
    reads it.
 6. **API contract:** request and response shapes live in `packages/shared`. Validate every
-   request body and param with them.
+   request body and param with them. Until the Zod schemas are removed (ADR-0022 step 5), change
+   **both** `index.ts` and `api.ts`: `apps/api/test/contract.test.ts` fails if they accept
+   different input, if real responses don't decode, or if the endpoints differ from the routes.
 7. **Tests:** API behavior changes need a test in `apps/api/test/`. Tests hit the real `app_test`
    database through `app.inject()`. Don't mock the database. Use `signUp()` from
    `test/helpers.ts` to get a session cookie.

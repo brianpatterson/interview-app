@@ -5,7 +5,7 @@
 > choice lives in [ADRs](adr/README.md). Each dependency's alternatives are in
 > [dependencies.md](dependencies.md).
 
-_Last updated: 2026-11-11_
+_Last updated: 2026-11-12_
 
 ## 1. What the system does
 
@@ -48,16 +48,16 @@ flowchart LR
   web -->|JSON over /api/*<br/>session cookie| api
   api -->|SQL via Drizzle| db
   api -.OAuth.-> idp[GitHub / Google]
-  shared[[packages/shared<br/>Zod schemas + types]] -.imported by.-> web
+  shared[[packages/shared<br/>Zod schemas + Effect HttpApi contract]] -.imported by.-> web
   shared -.imported by.-> api
 ```
 
-| Container         | Responsibility                                                | Tech                                      |
-| ----------------- | ------------------------------------------------------------- | ----------------------------------------- |
-| `apps/web`        | UI. Server state is cached and refetched with TanStack Query. | React 19, Vite 8                          |
-| `apps/api`        | HTTP API, auth (sessions, OAuth), validation, persistence     | Fastify 5, Better Auth, Drizzle ORM, `pg` |
-| `packages/shared` | API contract: Zod schemas, TS types, status list              | Zod 4                                     |
-| PostgreSQL        | System of record                                              | Postgres 17 (Docker locally)              |
+| Container         | Responsibility                                                                                                                                                  | Tech                                      |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| `apps/web`        | UI. Server state is cached and refetched with TanStack Query.                                                                                                   | React 19, Vite 8                          |
+| `apps/api`        | HTTP API, auth (sessions, OAuth), validation, persistence                                                                                                       | Fastify 5, Better Auth, Drizzle ORM, `pg` |
+| `packages/shared` | API contract: Zod schemas (served today) and the same contract as an Effect `HttpApi` definition (ADR-0022, not served yet), kept in sync by `contract.test.ts` | Zod 4, Effect 4                           |
+| PostgreSQL        | System of record                                                                                                                                                | Postgres 17 (Docker locally)              |
 
 In local dev, Vite proxies `/api/*` to the API, so the browser sees one origin and there is no
 CORS setup. Production will keep the same-origin approach (section 7).
@@ -125,7 +125,8 @@ All routes are JSON under `/api`. Request bodies are validated with the shared Z
 ([ADR-0005](adr/0005-shared-zod-contract.md)). The web client parses application and
 `/api/auth-config` responses with shared schemas too (`applicationSchema`, `authConfigSchema`),
 so a contract mismatch fails at the boundary instead of deep in the UI; API tests check that
-real responses parse.
+real responses parse. Job URLs must be `http(s)`: the web app renders them as links, so `javascript:` or `data:` URLs
+are rejected at the API rather than left to React and the CSP.
 
 | Method   | Path                    | Auth    | Success | Errors                                                                |
 | -------- | ----------------------- | ------- | ------- | --------------------------------------------------------------------- |

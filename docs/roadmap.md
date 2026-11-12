@@ -60,8 +60,11 @@ green, and updates `CLAUDE.md` and `docs/architecture.md` as it changes them:
    the classic plugin), in `pnpm check` and CI, and works in editors through the same tsconfig
    plugin entry. Also the anti-slop Effect rules, `@effect/vitest`, and an "Effect conventions"
    section in `CLAUDE.md` built from the spike's gotchas.
-3. **Contract:** the `HttpApi` definition, written with Effect Schema, in `packages/shared`. The
-   Zod schemas stay until the web app moves (step 5).
+3. ✅ **Contract:** the `HttpApi` definition, written with Effect Schema, in `packages/shared`
+   (`@roundtable/shared/api`). The Zod schemas stay until the web app moves (step 5).
+   `contract.test.ts` keeps the two in step: same input accepted and rejected, real responses
+   decode, same endpoints as Fastify. Writing it also exposed that `jobUrl` accepted
+   `javascript:` URLs; both schemas now allow only `http(s)`.
 4. **Server:** `HttpApi` replaces Fastify. That covers the routes; the `Authorization` middleware
    providing `CurrentUser`; Better Auth mounted with `fromWebHandler`; `@sentry/effect` with the
    ignore marker on a shared base class for expected errors; log redaction moved to Effect's
