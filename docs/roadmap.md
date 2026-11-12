@@ -76,6 +76,27 @@ green, and updates `CLAUDE.md` and `docs/architecture.md` as it changes them:
 5. **Web:** the typed client inside TanStack Query; Zod removed.
 6. **Email as Effect services:** sending limits, Resend, and a retry on Resend's 5xx errors.
 
+**Later: `@sentry/effect` instead of our own reporter.** ADR-0022 named `@sentry/effect`; step 4b
+uses our own `ErrorReporter` (`SentryErrorReporter` in `apps/api/src/error-tracking.ts`, about 15
+lines on `@sentry/node`) instead. The reasons: the package is alpha, we'd use only its reporter,
+it initialises Sentry itself (in place of our tuned `initErrorTracking`), and it pins
+`@sentry/node` to its own exact version. Migrate when **any** of these becomes true:
+
+- **We want tracing:** request latency, slow queries, or SLOs for the factory's "Observe" step.
+  Its `SentryEffectTracer` turns Effect's spans into Sentry traces, which our reporter can't do.
+- **It's stable** (no longer marked alpha), so it's no riskier than `@sentry/node`.
+- **It reports something ours doesn't**, for example the route and method on every event. A
+  database-outage event currently loses the request, because Better Auth reports first and
+  Sentry deduplicates the second report.
+- **Ours breaks on an Effect upgrade** (the `ErrorReporter` API is marked unstable) while theirs
+  keeps up.
+
+The move: replace `SentryErrorReporter` with `Sentry.effectLayer(...)`, passing it today's
+`initErrorTracking` options (minimal `dataCollection`, `beforeSend: scrubEvent`, console
+breadcrumbs off), and keep `@sentry/node` on its exact version. It's done when the Sentry tests
+pass unchanged, especially `test/server.test.ts` (the real server, every log line and event
+checked for the session token) and the outage tests in `test/error-tracking.test.ts`.
+
 ## Phase 3: The software factory
 
 The target loop:
