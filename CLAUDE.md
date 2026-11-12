@@ -52,8 +52,9 @@ pnpm check          # lint + format + typecheck + Effect diagnostics + dependenc
    **both** `index.ts` and `api.ts`: `apps/api/test/contract.test.ts` fails if they accept
    different input, if real responses don't decode, or if the endpoints differ from the routes.
 7. **Tests:** API behavior changes need a test in `apps/api/test/`. Tests hit the real `app_test`
-   database through `app.inject()`. Don't mock the database. Use `signUp()` from
-   `test/helpers.ts` to get a session cookie.
+   database through `t.inject()` from `setupTestApp()` in `test/helpers.ts`, never the server
+   framework directly, so the server can change underneath them (ADR-0022). Don't mock the
+   database. Use `signUp()` from the same file to get a session cookie.
 8. **Auth and tenancy:** every route that touches user data runs behind the session hook in
    `routes/applications.ts` (or an equivalent one), and every query filters on `req.userId`.
    Another user's rows are a 404, never a 403. Add a cross-user test for any new resource.

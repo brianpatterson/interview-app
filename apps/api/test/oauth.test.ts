@@ -45,7 +45,7 @@ function fakeGitHub(user: FakeGitHubUser) {
 
 /** Runs the whole browser round trip: start sign-in, then come back to the callback. */
 async function signInWithGitHub(t: TestApp) {
-  const start = await t.app.inject({
+  const start = await t.inject({
     method: 'POST',
     url: '/api/auth/sign-in/social',
     headers: { origin: env.BETTER_AUTH_URL },
@@ -57,7 +57,7 @@ async function signInWithGitHub(t: TestApp) {
   const state = authorizeUrl.searchParams.get('state')!;
   const cookie = start.cookies.map((c) => `${c.name}=${c.value}`).join('; ');
 
-  const callback = await t.app.inject({
+  const callback = await t.inject({
     method: 'GET',
     url: `/api/auth/callback/github?code=fake-code&state=${encodeURIComponent(state)}`,
     headers: { cookie },
@@ -79,14 +79,14 @@ const githubUser = (email: string, verified = true): FakeGitHubUser => ({
 });
 
 describe('GitHub sign-in', () => {
-  const t = setupTestApp({ GITHUB_CLIENT_ID: 'gh-id', GITHUB_CLIENT_SECRET: 'gh-secret' });
+  const t = setupTestApp({ env: { GITHUB_CLIENT_ID: 'gh-id', GITHUB_CLIENT_SECRET: 'gh-secret' } });
   beforeAll(() => t.migrate());
   beforeEach(() => t.reset());
   afterEach(() => vi.unstubAllGlobals());
   afterAll(() => t.close());
 
   it('lists GitHub as a provider once its credentials are set', async () => {
-    const res = await t.app.inject({ method: 'GET', url: '/api/auth-config' });
+    const res = await t.inject({ method: 'GET', url: '/api/auth-config' });
     expect(authConfigSchema.parse(res.json())).toEqual({ providers: ['github'] });
   });
 

@@ -1,23 +1,20 @@
 import { DrizzleQueryError } from 'drizzle-orm/errors';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { buildApp } from '../src/app.js';
-import { createDb } from '../src/db/index.js';
 import { serializeError } from '../src/logging.js';
 import { redactQueryParamsInJson } from '../src/redact.js';
 import { users } from '../src/db/schema.js';
-import { env, setupTestApp, signUp } from './helpers.js';
+import { setupTestApp, signUp } from './helpers.js';
 
 // Drizzle's query error message ends with the query's parameters, and Better Auth looks sessions
 // up by the raw token. These tests take the database away mid-session and read every line the
 // server would write to its logs (and the console, where Better Auth logs by default).
 describe('server logs during a database outage', () => {
   const t = setupTestApp();
-  const dead = createDb('postgres://app:app@localhost:1/nowhere');
   const lines: string[] = [];
 
-  const broken = buildApp(dead.db, env, {
+  const broken = setupTestApp({
+    databaseUrl: 'postgres://app:app@localhost:1/nowhere',
     logStream: { write: (line) => void lines.push(line) },
-    sendEmail: async () => {},
   });
 
   const consoleOutput = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -29,7 +26,6 @@ describe('server logs during a database outage', () => {
   afterAll(async () => {
     consoleOutput.mockRestore();
     await broken.close();
-    await dead.pool.end();
     await t.close();
   });
 
