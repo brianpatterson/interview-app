@@ -6,15 +6,17 @@ every change, not an afterthought.**
 
 ## Layout
 
-- `apps/web`: React 19 + Vite SPA. Uses TanStack Query for server state and calls `/api/*` (Vite proxies to the API).
+- `apps/web`: React 19 + Vite SPA. Uses TanStack Query for server state and calls `/api/*` through
+  the typed client from `@roundtable/shared/client` (Vite proxies to the API).
 - `apps/api`: Effect 4 `HttpApi` + Drizzle ORM + Postgres (ADR-0022). `src/app.ts` builds the server
-  (handlers for the contract in `@roundtable/shared/api`, the `Authorization` middleware, Better
+  (handlers for the contract in `@roundtable/shared`, the `Authorization` middleware, Better
   Auth's route); `src/index.ts` runs it. `src/db/schema.ts` is the schema source of truth,
   `src/db/effect.ts` the Effect database, `src/auth.ts` configures Better Auth, `src/env.ts`
   validates environment variables.
-- `packages/shared`: the API contract, consumed as TS source. `src/index.ts` has the Zod schemas
-  the current server and web app use; `src/api.ts` (`@roundtable/shared/api`) has the same
-  contract as an Effect `HttpApi` definition, which replaces them in ADR-0022 steps 4–5.
+- `packages/shared`: the API contract, consumed as TS source. `src/index.ts` is the Effect
+  `HttpApi` definition (endpoints, schemas, errors); `src/client.ts` (`@roundtable/shared/client`)
+  is the typed client generated from it, which the web app calls and `client.test.ts` runs against
+  the real server. Everything here ships to the browser: no server code.
 - `infra/`: OpenTofu for production (DigitalOcean droplet, volume, reserved IP, firewall, Cloudflare DNS) and cloud-init. See `infra/README.md`.
 - `compose.prod.yml`, `apps/*/Dockerfile`, `apps/web/Caddyfile`: the production runtime.
 - `docs/`: `architecture.md` (current state), `adr/` (decisions), `dependencies.md` (dependency register), `roadmap.md` (where this is going).
@@ -52,9 +54,11 @@ pnpm check          # lint + format + typecheck + Effect diagnostics + dependenc
    (nullable or defaulted) first, start using it in a later release, remove only after nothing
    reads it.
 6. **API contract:** request and response shapes live in `packages/shared`. Validate every
-   request body and param with them. Until the Zod schemas are removed (ADR-0022 step 5), change
-   **both** `index.ts` and `api.ts`: `apps/api/test/contract.test.ts` fails if they accept
-   different input, if real responses don't decode, or if the endpoints differ from the routes.
+   request body and param with them (the `HttpApi` does this before handlers run). The client
+   encodes request bodies with the same schemas before sending them, so a transformation must
+   work in both directions (see `Text` in `index.ts`). `apps/api/test/contract.test.ts` pins
+   what the schemas accept and fails if the endpoints differ from the routes served. A new
+   error needs a user-facing message in `client.ts`.
 7. **Tests:** API behavior changes need a test in `apps/api/test/`. Tests hit the real `app_test`
    database through `t.inject()` from `setupTestApp()` in `test/helpers.ts`, never the server
    framework directly, so the server can change underneath them (ADR-0022). Don't mock the
@@ -76,8 +80,8 @@ pnpm check          # lint + format + typecheck + Effect diagnostics + dependenc
   anti-slop rules (`tools/oxlint/anti-slop/`). In `.oxlintrc.json`, always write rules with their
   plugin prefix (`typescript/no-namespace`); a bare name can resolve to another plugin's rule
   and silently do nothing. Fix findings, don't suppress them: put a `// SAFETY:` comment stating the checked
-  invariant before any type assertion, parse input with Zod instead of passing `unknown` or
-  `object` around, and let `pnpm lint:fix` add blank lines. Update the plugin only through the
+  invariant before any type assertion, parse input with a schema (Effect Schema; Zod
+  only for `env.ts` and `redact.ts`) instead of passing `unknown` or `object` around, and let `pnpm lint:fix` add blank lines. Update the plugin only through the
   `install-anti-slop` skill.
 - TypeScript 7 (the native Go port, `^7.0`). Vite, Vitest, tsx and esbuild strip types
   themselves and Oxlint has no type-aware rules on. Two tools use the compiler: `tsc`, and

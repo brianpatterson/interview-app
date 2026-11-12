@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { authConfigSchema } from '@roundtable/shared';
+import { Schema } from 'effect';
+import { AuthConfig } from '@roundtable/shared';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { accounts, users } from '../src/db/schema.js';
@@ -87,7 +88,7 @@ describe('GitHub sign-in', () => {
 
   it('lists GitHub as a provider once its credentials are set', async () => {
     const res = await t.inject({ method: 'GET', url: '/api/auth-config' });
-    expect(authConfigSchema.parse(res.json())).toEqual({ providers: ['github'] });
+    expect(Schema.decodeUnknownSync(AuthConfig)(res.json())).toEqual({ providers: ['github'] });
   });
 
   it('sends the browser to GitHub with our callback URL, state and the email scope', async () => {

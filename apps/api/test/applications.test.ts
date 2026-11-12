@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { applicationSchema, type Application } from '@roundtable/shared';
+import { Schema } from 'effect';
+import { Application } from '@roundtable/shared';
 import { setupTestApp, signUp, type Json } from './helpers.js';
 
 const t = setupTestApp();
@@ -16,6 +17,9 @@ afterAll(() => t.close());
 
 afterEach(() => vi.useRealTimers());
 
+// Responses as they arrive on the wire: dates are still ISO 8601 strings.
+type ApplicationJson = typeof Application.Encoded;
+
 // Raw request bodies, deliberately untyped by the contract: several tests send invalid input.
 type Payload = Json;
 
@@ -26,7 +30,7 @@ function request(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, paylo
 async function create(body: Payload) {
   const res = await request('POST', '/api/applications', body);
 
-  return { res, json: res.json<Application>() };
+  return { res, json: res.json<ApplicationJson>() };
 }
 
 describe('applications API', () => {
@@ -47,10 +51,10 @@ describe('applications API', () => {
     const list = await request('GET', '/api/applications');
     const updated = await request('PATCH', `/api/applications/${created.id}`, { status: 'offer' });
 
-    // The web client parses every response with these schemas, so a mismatch would break it.
-    expect(() => applicationSchema.parse(created)).not.toThrow();
-    expect(() => applicationSchema.array().parse(list.json())).not.toThrow();
-    expect(() => applicationSchema.parse(updated.json())).not.toThrow();
+    // The web client decodes every response with these schemas, so a mismatch would break it.
+    expect(() => Schema.decodeSync(Application)(created)).not.toThrow();
+    expect(() => Schema.decodeUnknownSync(Schema.Array(Application))(list.json())).not.toThrow();
+    expect(() => Schema.decodeUnknownSync(Application)(updated.json())).not.toThrow();
   });
 
   it('rejects invalid input', async () => {
@@ -64,7 +68,7 @@ describe('applications API', () => {
     await request('PATCH', `/api/applications/${first.id}`, { status: 'screening' });
 
     const res = await request('GET', '/api/applications');
-    expect(res.json<Application[]>().map((a) => a.company)).toEqual(['First', 'Second']);
+    expect(res.json<ApplicationJson[]>().map((a) => a.company)).toEqual(['First', 'Second']);
   });
 
   it('updates status and bumps updatedAt', async () => {
@@ -74,7 +78,7 @@ describe('applications API', () => {
       status: 'interviewing',
     });
 
-    const updated = res.json<Application>();
+    const updated = res.json<ApplicationJson>();
     expect(res.statusCode).toBe(200);
     expect(updated.status).toBe('interviewing');
     expect(new Date(updated.updatedAt) > new Date(created.updatedAt)).toBe(true);
@@ -90,7 +94,7 @@ describe('applications API', () => {
     const res = await request('PATCH', `/api/applications/${created.id}`, { status: 'offer' });
     vi.useRealTimers();
 
-    const updated = res.json<Application>();
+    const updated = res.json<ApplicationJson>();
     expect(new Date(updated.updatedAt) > new Date(created.updatedAt)).toBe(true);
   });
 

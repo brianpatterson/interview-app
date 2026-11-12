@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import { Effect, Layer } from 'effect';
 import { HttpRouter, HttpServer } from 'effect/http';
 import { HttpApi } from 'effect/http-api';
-import { RoundtableApi } from '@roundtable/shared/api';
+import { RoundtableApi } from '@roundtable/shared';
 import { appLayer, observabilityLayer } from '../src/app.js';
 import { createDb } from '../src/db/index.js';
 import { runMigrations } from '../src/db/migrate.js';
@@ -98,6 +98,19 @@ export function setupTestApp(options: TestAppOptions = {}) {
 
   return {
     inject,
+    /**
+     * A fetch that reaches this app in-process, for clients that take one (like the web app's typed
+     * client). Like a browser on the same origin, it sends `cookie` with every request.
+     */
+    fetchAs:
+      (cookie?: string): typeof globalThis.fetch =>
+      (input, init) => {
+        const request = new Request(input, init);
+
+        if (cookie) request.headers.set('cookie', cookie);
+
+        return handler(request);
+      },
     /** Every route the server answers, as "METHOD /path", except Better Auth's `/api/auth/*`. */
     routes: () => answeredRoutes(inject),
     db: admin.db,

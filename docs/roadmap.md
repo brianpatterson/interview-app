@@ -61,7 +61,7 @@ green, and updates `CLAUDE.md` and `docs/architecture.md` as it changes them:
    plugin entry. Also the anti-slop Effect rules, `@effect/vitest`, and an "Effect conventions"
    section in `CLAUDE.md` built from the spike's gotchas.
 3. ✅ **Contract:** the `HttpApi` definition, written with Effect Schema, in `packages/shared`
-   (`@roundtable/shared/api`). The Zod schemas stay until the web app moves (step 5).
+   (now `@roundtable/shared`). The Zod schemas stayed until the web app moved (step 5).
    `contract.test.ts` keeps the two in step: same input accepted and rejected, real responses
    decode, same endpoints as Fastify. Writing it also exposed that `jobUrl` accepted
    `javascript:` URLs; both schemas now allow only `http(s)`.
@@ -73,7 +73,12 @@ green, and updates `CLAUDE.md` and `docs/architecture.md` as it changes them:
    ignore marker; Effect's logs go through pino and its redaction. 400s are RFC 9457 problems
    that name the invalid value. `server.test.ts` checks the production wiring on a real Node
    server.
-5. **Web:** the typed client inside TanStack Query; Zod removed.
+5. ✅ **Web:** the web app calls the API through the client generated from the contract
+   (`@roundtable/shared/client`), inside TanStack Query; the Zod contract is gone (Zod remains
+   only for the API's `env.ts` and `redact.ts`). The client checks request bodies before sending
+   them, which exposed that `Schema.Trim` refuses to _encode_ untrimmed text: company and job
+   title now trim in both directions. `client.test.ts` runs the client against the real server.
+   Bundle: 115 → 155 KB gzipped, as the ADR estimated.
 6. **Email as Effect services:** sending limits, Resend, and a retry on Resend's 5xx errors.
 
 **Later: `@sentry/effect` instead of our own reporter.** ADR-0022 named `@sentry/effect`; step 4b
@@ -164,7 +169,7 @@ is marked ✅.
 | Layer                       | Question it answers                                           | Tools                                                                        | Status                                        |
 | --------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------- |
 | Static checks               | Is the code well-formed?                                      | TypeScript strict, Oxlint, Prettier                                          | ✅                                            |
-| Contract                    | Do the frontend and backend agree?                            | Shared Zod schemas                                                           | ✅                                            |
+| Contract                    | Do the frontend and backend agree?                            | Shared Effect `HttpApi` contract and typed client                            | ✅                                            |
 | Integration tests           | Does the API behave correctly against a real DB?              | Vitest + Postgres                                                            | ✅                                            |
 | Security scanning           | Known-vulnerable deps? Injection bugs?                        | Dependabot, dependency review, CodeQL                                        | ✅                                            |
 | Docs as a gate              | Is the "why" recorded?                                        | Dependency register check, PR template, ADRs                                 | ✅                                            |

@@ -9,7 +9,7 @@ import {
   CurrentUser,
   RoundtableApi,
   Unauthorized,
-} from '@roundtable/shared/api';
+} from '@roundtable/shared';
 import { createAuth, enabledProviders, type Auth } from './auth.js';
 import { Database } from './db/effect.js';
 import type { Db } from './db/index.js';
@@ -188,7 +188,7 @@ export interface AppOptions {
 }
 
 /**
- * The whole API as one Layer of routes: the HttpApi contract from @roundtable/shared/api, Better
+ * The whole API as one Layer of routes: the HttpApi contract from @roundtable/shared, Better
  * Auth's routes, and the services they need. Serve it (index.ts) or turn it into a web handler
  * (tests); either way the same code answers. Provide observabilityLayer around it.
  */

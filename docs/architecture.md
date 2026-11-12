@@ -48,16 +48,16 @@ flowchart LR
   web -->|JSON over /api/*<br/>session cookie| api
   api -->|SQL via Drizzle| db
   api -.OAuth.-> idp[GitHub / Google]
-  shared[[packages/shared<br/>Zod schemas + Effect HttpApi contract]] -.imported by.-> web
+  shared[[packages/shared<br/>Effect HttpApi contract + typed client]] -.imported by.-> web
   shared -.imported by.-> api
 ```
 
-| Container         | Responsibility                                                                                                                                                  | Tech                                                                                                                   |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `apps/web`        | UI. Server state is cached and refetched with TanStack Query.                                                                                                   | React 19, Vite 8                                                                                                       |
-| `apps/api`        | HTTP API, auth (sessions, OAuth), validation, persistence                                                                                                       | Effect 4 HttpApi, Better Auth, Drizzle ORM (Effect driver on `@effect/sql-pg`, Promise driver on `pg` for Better Auth) |
-| `packages/shared` | API contract: Zod schemas (served today) and the same contract as an Effect `HttpApi` definition (ADR-0022, not served yet), kept in sync by `contract.test.ts` | Zod 4, Effect 4                                                                                                        |
-| PostgreSQL        | System of record                                                                                                                                                | Postgres 17 (Docker locally)                                                                                           |
+| Container         | Responsibility                                                                                                           | Tech                                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `apps/web`        | UI. Server state is cached and refetched with TanStack Query, through the typed client.                                  | React 19, Vite 8, Effect 4 (client only)                                                                               |
+| `apps/api`        | HTTP API, auth (sessions, OAuth), validation, persistence                                                                | Effect 4 HttpApi, Better Auth, Drizzle ORM (Effect driver on `@effect/sql-pg`, Promise driver on `pg` for Better Auth) |
+| `packages/shared` | API contract as an Effect `HttpApi` definition, and the typed client generated from it that the web app calls (ADR-0022) | Effect 4                                                                                                               |
+| PostgreSQL        | System of record                                                                                                         | Postgres 17 (Docker locally)                                                                                           |
 
 In local dev, Vite proxies `/api/*` to the API, so the browser sees one origin and there is no
 CORS setup. Production will keep the same-origin approach (section 7).
@@ -122,15 +122,17 @@ accepted`, plus the terminal states `rejected` and `withdrawn`. Transitions aren
 ## 5. API
 
 All routes are JSON under `/api`. The server is the Effect `HttpApi` definition in
-`@roundtable/shared/api` ([ADR-0022](adr/0022-effect-for-the-api.md)): requests are decoded by its
+`@roundtable/shared` ([ADR-0022](adr/0022-effect-for-the-api.md)): requests are decoded by its
 schemas before any handler runs, a failed decode is a 400 RFC 9457 problem
 (`application/problem+json`) naming each invalid value and why, and responses are encoded
 through their schemas, so columns not in them (`userId`) never leave the server. Better Auth's
-routes are mounted beside it. The Zod schemas still describe the same contract for the web app
-until step 5, and `contract.test.ts` keeps the two in step. The web client parses application and
-`/api/auth-config` responses with shared schemas too (`applicationSchema`, `authConfigSchema`),
-so a contract mismatch fails at the boundary instead of deep in the UI; API tests check that
-real responses parse. Job URLs must be `http(s)`: the web app renders them as links, so `javascript:` or `data:` URLs
+routes are mounted beside it. The web app calls the API through the client generated from the
+same definition (`@roundtable/shared/client`): request bodies are encoded and checked before
+they're sent, so invalid input fails in the browser with the server's own message; responses
+are decoded (dates become `Date`s), so a contract mismatch fails at the boundary instead of deep
+in the UI; and the contract's errors (`Unauthorized`, `ApplicationNotFound`) become messages for
+the user. `client.test.ts` runs that client against the real server. The client costs about
+40 KB gzipped of the web bundle (115 → 155 KB). Job URLs must be `http(s)`: the web app renders them as links, so `javascript:` or `data:` URLs
 are rejected at the API rather than left to React and the CSP.
 
 | Method   | Path                    | Auth    | Success | Errors                                                                |
