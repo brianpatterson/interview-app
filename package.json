@@ -15,9 +15,11 @@
     "db:generate": "pnpm --filter @roundtable/api db:generate",
     "db:migrate": "pnpm --filter @roundtable/api db:migrate",
     "check:deps": "node scripts/check-dependencies-doc.ts",
-    "check": "pnpm lint && prettier --check . && pnpm typecheck && pnpm check:deps && pnpm test"
+    "check:effect": "effect-tsgo diagnostics --project apps/api/tsconfig.json --strict",
+    "check": "pnpm lint && prettier --check . && pnpm typecheck && pnpm check:effect && pnpm check:deps && pnpm test"
   },
   "devDependencies": {
+    "@effect/tsgo": "0.67.7",
     "@oxlint/plugins": "1.93.0",
     "@types/node": "^26.6.6",
     "oxlint": "1.93.0",

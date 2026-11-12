@@ -20,7 +20,8 @@ pnpm db:up          # start Postgres (dbs: app, app_test)
 pnpm dev            # web :5173 + api :3001
 pnpm db:generate    # after editing schema.ts: writes a SQL migration to apps/api/drizzle/
 pnpm db:migrate     # apply migrations to the dev db
-pnpm check          # lint + format check + typecheck + dependency register + tests: run before every commit
+pnpm check:effect   # Effect diagnostics (mistakes tsc can't see, e.g. an Effect that is never run)
+pnpm check          # lint + format + typecheck + Effect diagnostics + dependency register + tests: run before every commit
 ```
 
 ## Rules for every change
@@ -28,6 +29,9 @@ pnpm check          # lint + format check + typecheck + dependency register + te
 1. **Work on a branch and open a PR.** Never commit straight to `main`.
 2. **Dependencies:** adding, removing or replacing a package means updating `docs/dependencies.md`
    with its purpose, the main alternative, and why this one won. `pnpm check:deps` enforces this.
+   pnpm refuses versions published in the last 24 hours (`minimumReleaseAge`, a supply-chain
+   safeguard). If `pnpm add` writes a `minimumReleaseAgeExclude` entry into
+   `pnpm-workspace.yaml`, don't keep it: revert the files and pin the newest version old enough.
 3. **Decisions:** any choice that's hard to reverse or crosses components (data model, new
    service, hosting, auth, caching, a new pattern) gets an ADR in `docs/adr/` from `template.md`,
    plus a row in `docs/adr/README.md`. Never edit an accepted ADR's decision. Supersede it with a
@@ -65,10 +69,42 @@ pnpm check          # lint + format check + typecheck + dependency register + te
   invariant before any type assertion, parse input with Zod instead of passing `unknown` or
   `object` around, and let `pnpm lint:fix` add blank lines. Update the plugin only through the
   `install-anti-slop` skill.
-- TypeScript 7 (the native Go port, `^7.0`). Nothing in the toolchain uses its compiler API:
-  Vite, Vitest, tsx and esbuild strip types themselves and Oxlint has no type-aware rules on, so
-  `tsc` is the only consumer. Check that before adding a tool that does (e.g. type-aware lint).
+- TypeScript 7 (the native Go port, `^7.0`). Vite, Vitest, tsx and esbuild strip types
+  themselves and Oxlint has no type-aware rules on. Two tools use the compiler: `tsc`, and
+  `@effect/tsgo` (`check:effect`), which ships Effect-patched builds **for specific TypeScript
+  versions**. Upgrade TypeScript only to a version `@effect/tsgo`'s release supports (its README
+  lists them), and check the same before adding another compiler-based tool.
 - GitHub Actions: pin third-party actions (anything outside `actions/*` and `github/*`) to a full
   commit SHA with the version in a comment. Dependabot keeps the pins current. Give every workflow
   an explicit `permissions:` block (default `contents: read`). Every job sets `timeout-minutes` (GitHub's
   default is 6 hours, so a hung step blocks a PR for that long).
+
+## Effect conventions
+
+The API is moving to Effect 4 ([ADR-0022](docs/adr/0022-effect-for-the-api.md), steps in
+`docs/roadmap.md`). These come from mistakes made in the spike
+([findings](docs/research/2026-11-effect-spike.md)):
+
+- **Versions:** `effect` and `@effect/*` are pinned exactly and upgraded together (Dependabot's
+  `effect` group). `effect/http-api` and `@effect/vitest` are marked unstable: a bump may need code
+  changes, so read its diff.
+- **Errors:** define them with `Schema.TaggedError`. Handle them with `Effect.catchTag`,
+  `catchTags` or `Match`, never by comparing or switching on `_tag`, and never build a `{ _tag }`
+  object by hand: the anti-slop Effect rules reject both. Expected outcomes (401, 404) set
+  `readonly [ErrorReporter.ignore] = true`, or Sentry reports them as errors.
+- **Services:** `Context.Service` with a static `layer`; methods with `Effect.fn`. Yield the
+  service, and let requirements propagate to where the app is assembled.
+- **Route requirements are per request.** `Layer.provide` on the router doesn't satisfy a
+  handler's own requirements; resolve the service while building the route (`Layer.unwrap`). The
+  type error shows up far from the route, where the server is assembled ("Expected 2 arguments").
+- **Schemas work in both directions.** A typed client _encodes_ what you pass, so a transform
+  like `Schema.Trim` means the value must already be trimmed in code. Untrusted input is decoded
+  (and trimmed) on the server.
+- **Promise boundaries stay at the edges** (Better Auth's handler, the Promise-based Drizzle
+  instance it uses). Never run an Effect inside a Promise callback that holds a resource: an
+  interrupted request leaked a pooled connection that way in the spike.
+- **Tests:** `@effect/vitest`. `it.effect` runs on a simulated clock (time passes only through
+  `TestClock.adjust`); use `it.live` for anything that waits on real time or I/O
+  (`test/effect-testing.test.ts`). Tests still hit the real `app_test` database.
+- **`pnpm check:effect` must pass.** Fix findings rather than suppressing them. The only rule
+  switched off is `unstableApiUsage`, because ADR-0022 accepted those APIs.
