@@ -96,6 +96,26 @@ describe('applications API', () => {
     expect(new Date(updated.updatedAt) > new Date(created.updatedAt)).toBe(true);
   });
 
+  it('accepts only http(s) job URLs, on create and on update', async () => {
+    const { res: ok, json: created } = await create({
+      company: 'Acme',
+      jobTitle: 'SWE',
+      jobUrl: 'https://example.com/jobs/1',
+    });
+
+    expect(ok.statusCode).toBe(201);
+
+    for (const jobUrl of ['javascript:alert(document.cookie)', 'data:text/html,x', 'ftp://x.y']) {
+      const { res } = await create({ company: 'Acme', jobTitle: 'SWE', jobUrl });
+
+      expect(res.statusCode, jobUrl).toBe(400);
+
+      const patched = await request('PATCH', `/api/applications/${created.id}`, { jobUrl });
+
+      expect(patched.statusCode, jobUrl).toBe(400);
+    }
+  });
+
   it('rejects an unknown status', async () => {
     const { json: created } = await create({ company: 'Acme', jobTitle: 'SWE' });
     const res = await request('PATCH', `/api/applications/${created.id}`, { status: 'ghosted' });
