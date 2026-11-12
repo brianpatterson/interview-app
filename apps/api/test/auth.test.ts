@@ -3,7 +3,6 @@ import type { Application } from '@roundtable/shared';
 import { env, linkPath, setupTestApp, signUp, signUpUnverified, takeEmail } from './helpers.js';
 
 const t = setupTestApp();
-const { app } = t;
 
 beforeAll(() => t.migrate());
 
@@ -20,13 +19,13 @@ describe('authentication', () => {
       ['PATCH', '/api/applications/00000000-0000-4000-8000-000000000000'],
       ['DELETE', '/api/applications/00000000-0000-4000-8000-000000000000'],
     ] as const) {
-      const res = await app.inject({ method, url, payload: {} });
+      const res = await t.inject({ method, url, payload: {} });
       expect(res.statusCode, `${method} ${url}`).toBe(401);
     }
   });
 
   it('rejects a forged session cookie', async () => {
-    const res = await app.inject({
+    const res = await t.inject({
       method: 'GET',
       url: '/api/applications',
       headers: { cookie: 'better-auth.session_token=forged.value' },
@@ -38,7 +37,7 @@ describe('authentication', () => {
   it('signs in with email and password', async () => {
     const { email, password } = await signUp(t);
 
-    const res = await app.inject({
+    const res = await t.inject({
       method: 'POST',
       url: '/api/auth/sign-in/email',
       headers: { origin: env.BETTER_AUTH_URL },
@@ -52,7 +51,7 @@ describe('authentication', () => {
   it('rejects a wrong password', async () => {
     const { email } = await signUp(t);
 
-    const res = await app.inject({
+    const res = await t.inject({
       method: 'POST',
       url: '/api/auth/sign-in/email',
       headers: { origin: env.BETTER_AUTH_URL },
@@ -66,7 +65,7 @@ describe('authentication', () => {
     // A cross-site attacker can make the browser attach the victim's cookie, but not fake Origin.
     const { cookie } = await signUp(t);
 
-    const res = await app.inject({
+    const res = await t.inject({
       method: 'POST',
       url: '/api/auth/sign-out',
       headers: { cookie, origin: 'https://evil.example' },
@@ -79,7 +78,7 @@ describe('authentication', () => {
   it('sends a password reset link', async () => {
     const { email } = await signUp(t);
 
-    const res = await app.inject({
+    const res = await t.inject({
       method: 'POST',
       url: '/api/auth/request-password-reset',
       headers: { origin: env.BETTER_AUTH_URL },
@@ -92,7 +91,7 @@ describe('authentication', () => {
 
   it('signs out other devices after a password reset', async () => {
     const { email, cookie } = await signUp(t);
-    await app.inject({
+    await t.inject({
       method: 'POST',
       url: '/api/auth/request-password-reset',
       headers: { origin: env.BETTER_AUTH_URL },
@@ -105,7 +104,7 @@ describe('authentication', () => {
       .split('/')
       .pop();
 
-    const reset = await app.inject({
+    const reset = await t.inject({
       method: 'POST',
       url: '/api/auth/reset-password',
       headers: { origin: env.BETTER_AUTH_URL },
@@ -113,7 +112,7 @@ describe('authentication', () => {
     });
 
     expect(reset.statusCode).toBe(200);
-    const res = await app.inject({ method: 'GET', url: '/api/applications', headers: { cookie } });
+    const res = await t.inject({ method: 'GET', url: '/api/applications', headers: { cookie } });
     expect(res.statusCode).toBe(401);
   });
 });
@@ -131,7 +130,7 @@ describe('email verification', () => {
     const { email, password } = await signUpUnverified(t);
     takeEmail(t, email, 'Confirm your email');
 
-    const res = await app.inject({
+    const res = await t.inject({
       method: 'POST',
       url: '/api/auth/sign-in/email',
       headers: { origin: env.BETTER_AUTH_URL },
@@ -146,7 +145,7 @@ describe('email verification', () => {
   it('signs in and redirects home when the link is clicked', async () => {
     const { email } = await signUpUnverified(t);
 
-    const res = await app.inject({
+    const res = await t.inject({
       method: 'GET',
       url: linkPath(takeEmail(t, email, 'Confirm your email')),
     });
@@ -157,7 +156,7 @@ describe('email verification', () => {
   });
 
   it('redirects with an error for a bad link', async () => {
-    const res = await app.inject({
+    const res = await t.inject({
       method: 'GET',
       url: '/api/auth/verify-email?token=not-a-real-token&callbackURL=%2F',
     });
@@ -173,7 +172,7 @@ describe('per-user data', () => {
     const alice = await signUp(t);
     const bob = await signUp(t);
 
-    const created = await app.inject({
+    const created = await t.inject({
       method: 'POST',
       url: '/api/applications',
       headers: { cookie: alice.cookie },
@@ -182,7 +181,7 @@ describe('per-user data', () => {
 
     const { id } = created.json<Application>();
 
-    const bobList = await app.inject({
+    const bobList = await t.inject({
       method: 'GET',
       url: '/api/applications',
       headers: { cookie: bob.cookie },
@@ -191,7 +190,7 @@ describe('per-user data', () => {
     expect(bobList.json()).toEqual([]);
 
     for (const method of ['GET', 'PATCH', 'DELETE'] as const) {
-      const res = await app.inject({
+      const res = await t.inject({
         method,
         url: `/api/applications/${id}`,
         headers: { cookie: bob.cookie },
@@ -201,7 +200,7 @@ describe('per-user data', () => {
       expect(res.statusCode, method).toBe(404);
     }
 
-    const aliceView = await app.inject({
+    const aliceView = await t.inject({
       method: 'GET',
       url: `/api/applications/${id}`,
       headers: { cookie: alice.cookie },

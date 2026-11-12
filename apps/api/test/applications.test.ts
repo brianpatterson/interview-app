@@ -1,10 +1,8 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { applicationSchema, type Application } from '@roundtable/shared';
-import type { InjectOptions } from 'fastify';
-import { setupTestApp, signUp } from './helpers.js';
+import { setupTestApp, signUp, type Json } from './helpers.js';
 
 const t = setupTestApp();
-const { app } = t;
 let cookie: string;
 
 beforeAll(() => t.migrate());
@@ -19,10 +17,10 @@ afterAll(() => t.close());
 afterEach(() => vi.useRealTimers());
 
 // Raw request bodies, deliberately untyped by the contract: several tests send invalid input.
-type Payload = InjectOptions['payload'];
+type Payload = Json;
 
 function request(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, payload?: Payload) {
-  return app.inject({ method, url, payload, headers: { cookie } });
+  return t.inject({ method, url, payload, headers: { cookie } });
 }
 
 async function create(body: Payload) {

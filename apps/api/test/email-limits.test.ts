@@ -3,7 +3,7 @@ import { emailSends } from '../src/db/schema.js';
 import { env, setupTestApp, signUp, type TestApp } from './helpers.js';
 
 function requestReset(t: TestApp, email: string) {
-  return t.app.inject({
+  return t.inject({
     method: 'POST',
     url: '/api/auth/request-password-reset',
     headers: { origin: env.BETTER_AUTH_URL },
@@ -54,7 +54,7 @@ describe('email limits', () => {
 });
 
 describe('daily email limit', () => {
-  const t = setupTestApp({ EMAIL_LIMIT_PER_DAY: 3 });
+  const t = setupTestApp({ env: { EMAIL_LIMIT_PER_DAY: 3 } });
   beforeAll(() => t.migrate());
   beforeEach(() => t.reset());
   afterAll(() => t.close());

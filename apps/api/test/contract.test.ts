@@ -101,7 +101,7 @@ describe('real responses from the current API decode with the contract', () => {
   afterAll(() => t.close());
 
   it('applications, health and auth-config', async () => {
-    const created = await t.app.inject({
+    const created = await t.inject({
       method: 'POST',
       url: '/api/applications',
       headers: { cookie },
@@ -110,25 +110,25 @@ describe('real responses from the current API decode with the contract', () => {
 
     const id = applicationSchema.parse(created.json()).id;
 
-    const list = await t.app.inject({
+    const list = await t.inject({
       method: 'GET',
       url: '/api/applications',
       headers: { cookie },
     });
 
-    const one = await t.app.inject({
+    const one = await t.inject({
       method: 'GET',
       url: `/api/applications/${id}`,
       headers: { cookie },
     });
 
-    const health = await t.app.inject({ method: 'GET', url: '/api/health' });
-    const authConfig = await t.app.inject({ method: 'GET', url: '/api/auth-config' });
+    const health = await t.inject({ method: 'GET', url: '/api/health' });
+    const authConfig = await t.inject({ method: 'GET', url: '/api/auth-config' });
 
     const decoded = Schema.decodeUnknownSync(contract.Application)(created.json());
 
     expect(decoded.createdAt).toBeInstanceOf(Date);
-    expect(decoded.createdAt.toISOString()).toBe(created.json().createdAt);
+    expect(decoded.createdAt.toISOString()).toBe(created.json<{ createdAt: string }>().createdAt);
     expect(() =>
       Schema.decodeUnknownSync(Schema.Array(contract.Application))(list.json()),
     ).not.toThrow();
@@ -138,34 +138,13 @@ describe('real responses from the current API decode with the contract', () => {
   });
 });
 
-describe('the contract matches the routes Fastify serves', () => {
+describe('the contract matches the routes the server answers', () => {
   const t = setupTestApp();
 
   afterAll(() => t.close());
 
   it('same methods and paths, except Better Auth (mounted separately)', async () => {
-    await t.app.ready();
-    const served = new Set<string>();
-    // printRoutes draws a tree ("└── /api/applications" then "    └── /:id"): each level is
-    // indented 4 characters, so rebuild full paths from the parents above each line.
-    const parents: string[] = [];
-
-    for (const line of t.app.printRoutes({ commonPrefix: false }).split('\n')) {
-      const match = line.match(/^(.*?)[├└]── (\S+) \(([^)]+)\)/);
-
-      if (!match?.[2] || !match[3]) continue;
-      const depth = (match[1] ?? '').length / 4;
-      const path = (parents[depth - 1] ?? '') + match[2];
-
-      parents[depth] = path;
-
-      // Better Auth's `/api/auth/*` route prints as `*`; it isn't part of the HttpApi.
-      if (match[2] === '*') continue;
-
-      for (const method of match[3].split(', ')) {
-        if (method !== 'HEAD') served.add(`${method} ${path}`);
-      }
-    }
+    const served = await t.routes();
 
     const declared = new Set<string>();
 
@@ -174,7 +153,7 @@ describe('the contract matches the routes Fastify serves', () => {
       onEndpoint: ({ endpoint }) => declared.add(`${endpoint.method} ${endpoint.path}`),
     });
 
-    expect([...declared].sort()).toEqual([...served].sort());
+    expect([...declared].sort()).toEqual(served);
   });
 });
 
