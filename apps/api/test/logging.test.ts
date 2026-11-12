@@ -1,9 +1,12 @@
 import { DrizzleQueryError } from 'drizzle-orm/errors';
+import { eq } from 'drizzle-orm';
+import { Cause, Effect, Exit } from 'effect';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { serializeError } from '../src/logging.js';
 import { redactQueryParamsInJson } from '../src/redact.js';
-import { users } from '../src/db/schema.js';
-import { setupTestApp, signUp } from './helpers.js';
+import { Database } from '../src/db/effect.js';
+import { applications, users } from '../src/db/schema.js';
+import { env, setupTestApp, signUp } from './helpers.js';
 
 // Drizzle's query error message ends with the query's parameters, and Better Auth looks sessions
 // up by the raw token. These tests take the database away mid-session and read every line the
@@ -17,14 +20,18 @@ describe('server logs during a database outage', () => {
     logStream: { write: (line) => void lines.push(line) },
   });
 
-  const consoleOutput = vi.spyOn(console, 'error').mockImplementation(() => {});
+  // Every console method: anything that bypasses the logger (Effect's default logger writes
+  // with console.log) must not carry the token either.
+  const consoleOutput = (['log', 'info', 'warn', 'error', 'debug'] as const).map((method) =>
+    vi.spyOn(console, method).mockImplementation(() => {}),
+  );
 
   beforeAll(async () => {
     await t.migrate();
     await t.reset();
   });
   afterAll(async () => {
-    consoleOutput.mockRestore();
+    for (const spy of consoleOutput) spy.mockRestore();
     await broken.close();
     await t.close();
   });
@@ -44,7 +51,8 @@ describe('server logs during a database outage', () => {
 
     const logs = lines.join('');
 
-    const consoleLogs = consoleOutput.mock.calls
+    const consoleLogs = consoleOutput
+      .flatMap((spy) => spy.mock.calls)
       .flat()
       .map((arg) => (arg instanceof Error ? `${arg.message}\n${arg.stack}` : String(arg)))
       .join('\n');
@@ -120,6 +128,53 @@ describe('serializeError with a real Postgres error', () => {
     expect(serialized.message).toContain('params: <redacted: uuid, string(3), string(');
     // Postgres's `detail` ("Key (email)=(…) already exists") and the params hold the email.
     expect(JSON.stringify(serialized)).not.toContain(email);
+  });
+});
+
+describe('serializeError with a query value Postgres rejects', () => {
+  // A non-uuid compared with a uuid column: Postgres fails it as a data exception (22P02) and
+  // quotes the rejected value in its own message, on either driver.
+  const secret = 'not-a-uuid-but-a-secret-value';
+  const t = setupTestApp();
+
+  afterAll(() => t.close());
+
+  const expectSafeAndUseful = (err: Error) => {
+    const serialized = serializeError(err);
+
+    expect(JSON.stringify(serialized)).not.toContain(secret);
+    expect(serialized.message).toContain(`params: <redacted: string(${secret.length})>`);
+    expect(serialized.message).toContain('invalid input syntax for type uuid: "<redacted>"');
+    expect(serialized.postgres).toMatchObject({ code: '22P02', routine: 'string_to_uuid' });
+  };
+
+  it('Promise driver (pg)', async () => {
+    const err = await t.db
+      .select()
+      .from(applications)
+      .where(eq(applications.id, secret))
+      .then(
+        () => undefined,
+        (error: Error) => error,
+      );
+
+    expect(err).toBeInstanceOf(Error);
+    expectSafeAndUseful(err!);
+  });
+
+  it('Effect driver (@effect/sql-pg): the chain continues through the Effect Cause', async () => {
+    const exit = await Effect.runPromiseExit(
+      Effect.gen(function* () {
+        const db = yield* Database;
+
+        return yield* db.select().from(applications).where(eq(applications.id, secret));
+      }).pipe(Effect.provide(Database.layer(env.DATABASE_URL))),
+    );
+
+    const err = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined;
+
+    expect(err).toBeInstanceOf(Error);
+    expectSafeAndUseful(err instanceof Error ? err : new Error('query did not fail'));
   });
 });
 

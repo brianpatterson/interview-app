@@ -7,7 +7,11 @@ every change, not an afterthought.**
 ## Layout
 
 - `apps/web`: React 19 + Vite SPA. Uses TanStack Query for server state and calls `/api/*` (Vite proxies to the API).
-- `apps/api`: Fastify 5 + Drizzle ORM + Postgres. `src/app.ts` builds the app, `src/routes/` holds routes, `src/db/schema.ts` is the schema source of truth, `src/auth.ts` configures Better Auth, `src/env.ts` validates environment variables.
+- `apps/api`: Effect 4 `HttpApi` + Drizzle ORM + Postgres (ADR-0022). `src/app.ts` builds the server
+  (handlers for the contract in `@roundtable/shared/api`, the `Authorization` middleware, Better
+  Auth's route); `src/index.ts` runs it. `src/db/schema.ts` is the schema source of truth,
+  `src/db/effect.ts` the Effect database, `src/auth.ts` configures Better Auth, `src/env.ts`
+  validates environment variables.
 - `packages/shared`: the API contract, consumed as TS source. `src/index.ts` has the Zod schemas
   the current server and web app use; `src/api.ts` (`@roundtable/shared/api`) has the same
   contract as an Effect `HttpApi` definition, which replaces them in ADR-0022 steps 4–5.
@@ -55,9 +59,10 @@ pnpm check          # lint + format + typecheck + Effect diagnostics + dependenc
    database through `t.inject()` from `setupTestApp()` in `test/helpers.ts`, never the server
    framework directly, so the server can change underneath them (ADR-0022). Don't mock the
    database. Use `signUp()` from the same file to get a session cookie.
-8. **Auth and tenancy:** every route that touches user data runs behind the session hook in
-   `routes/applications.ts` (or an equivalent one), and every query filters on `req.userId`.
-   Another user's rows are a 404, never a 403. Add a cross-user test for any new resource.
+8. **Auth and tenancy:** every endpoint that touches user data is in a group behind the
+   `Authorization` middleware, and every query filters on the `CurrentUser` it provides.
+   Another user's rows are a 404, never a 403 (a malformed id is a 400 from the params schema,
+   which reveals nothing). Add a cross-user test for any new resource.
 9. **Config:** new environment variables go in `src/env.ts` (validated), `.env.example`
    (documented), and, if production needs them, `compose.prod.yml` and `.env.prod.example`. Never commit secrets. `.env` is git-ignored.
 10. **Infrastructure:** changes to `infra/` must pass `tofu fmt -check`, `tofu validate` and

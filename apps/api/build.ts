@@ -12,7 +12,7 @@ await build({
   sourcemap: true,
   // pg optionally requires a native driver we don't install.
   external: ['pg-native'],
-  // Bundled CommonJS dependencies (fastify, pg) call require() for Node built-ins, which ESM
+  // Bundled CommonJS dependencies (pg, pino) call require() for Node built-ins, which ESM
   // output doesn't provide, so define one.
   banner: {
     js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);",

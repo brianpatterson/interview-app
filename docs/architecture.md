@@ -40,7 +40,7 @@ flowchart LR
   end
 
   subgraph Server
-    api[API<br/>Fastify on Node 26<br/>apps/api]
+    api[API<br/>Effect HttpApi on Node 26<br/>apps/api]
   end
 
   db[(PostgreSQL 17)]
@@ -52,12 +52,12 @@ flowchart LR
   shared -.imported by.-> api
 ```
 
-| Container         | Responsibility                                                                                                                                                  | Tech                                      |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| `apps/web`        | UI. Server state is cached and refetched with TanStack Query.                                                                                                   | React 19, Vite 8                          |
-| `apps/api`        | HTTP API, auth (sessions, OAuth), validation, persistence                                                                                                       | Fastify 5, Better Auth, Drizzle ORM, `pg` |
-| `packages/shared` | API contract: Zod schemas (served today) and the same contract as an Effect `HttpApi` definition (ADR-0022, not served yet), kept in sync by `contract.test.ts` | Zod 4, Effect 4                           |
-| PostgreSQL        | System of record                                                                                                                                                | Postgres 17 (Docker locally)              |
+| Container         | Responsibility                                                                                                                                                  | Tech                                                                                                                   |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `apps/web`        | UI. Server state is cached and refetched with TanStack Query.                                                                                                   | React 19, Vite 8                                                                                                       |
+| `apps/api`        | HTTP API, auth (sessions, OAuth), validation, persistence                                                                                                       | Effect 4 HttpApi, Better Auth, Drizzle ORM (Effect driver on `@effect/sql-pg`, Promise driver on `pg` for Better Auth) |
+| `packages/shared` | API contract: Zod schemas (served today) and the same contract as an Effect `HttpApi` definition (ADR-0022, not served yet), kept in sync by `contract.test.ts` | Zod 4, Effect 4                                                                                                        |
+| PostgreSQL        | System of record                                                                                                                                                | Postgres 17 (Docker locally)                                                                                           |
 
 In local dev, Vite proxies `/api/*` to the API, so the browser sees one origin and there is no
 CORS setup. Production will keep the same-origin approach (section 7).
@@ -121,8 +121,13 @@ accepted`, plus the terminal states `rejected` and `withdrawn`. Transitions aren
 
 ## 5. API
 
-All routes are JSON under `/api`. Request bodies are validated with the shared Zod schemas
-([ADR-0005](adr/0005-shared-zod-contract.md)). The web client parses application and
+All routes are JSON under `/api`. The server is the Effect `HttpApi` definition in
+`@roundtable/shared/api` ([ADR-0022](adr/0022-effect-for-the-api.md)): requests are decoded by its
+schemas before any handler runs, a failed decode is a 400 RFC 9457 problem
+(`application/problem+json`) naming each invalid value and why, and responses are encoded
+through their schemas, so columns not in them (`userId`) never leave the server. Better Auth's
+routes are mounted beside it. The Zod schemas still describe the same contract for the web app
+until step 5, and `contract.test.ts` keeps the two in step. The web client parses application and
 `/api/auth-config` responses with shared schemas too (`applicationSchema`, `authConfigSchema`),
 so a contract mismatch fails at the boundary instead of deep in the UI; API tests check that
 real responses parse. Job URLs must be `http(s)`: the web app renders them as links, so `javascript:` or `data:` URLs
@@ -134,10 +139,10 @@ are rejected at the API rather than left to React and the CSP.
 | GET      | `/api/auth-config`      | public  | 200     | (lists enabled social providers)                                      |
 | GET/POST | `/api/auth/*`           | public  | varies  | Better Auth: sign-up/in/out, OAuth callbacks, password reset, session |
 | GET      | `/api/applications`     | session | 200     | 401                                                                   |
-| GET      | `/api/applications/:id` | session | 200     | 401, 404 (unknown, malformed, or not yours)                           |
+| GET      | `/api/applications/:id` | session | 200     | 400 (malformed id), 401, 404 (unknown or not yours)                   |
 | POST     | `/api/applications`     | session | 201     | 400, 401                                                              |
-| PATCH    | `/api/applications/:id` | session | 200     | 400, 401, 404                                                         |
-| DELETE   | `/api/applications/:id` | session | 204     | 401, 404                                                              |
+| PATCH    | `/api/applications/:id` | session | 200     | 400 (body or id), 401, 404                                            |
+| DELETE   | `/api/applications/:id` | session | 204     | 400 (malformed id), 401, 404                                          |
 
 The list isn't paginated. That's fine for hundreds of rows per user, and cursor pagination on
 `(updated_at, id)` is the planned next step.
@@ -150,13 +155,13 @@ The list isn't paginated. That's fine for hundreds of rows per user, and cursor 
 sequenceDiagram
   participant U as User
   participant W as Web (React Query)
-  participant A as API (Fastify)
+  participant A as API (Effect HttpApi)
   participant D as Postgres
   U->>W: pick "interviewing"
   W->>A: PATCH /api/applications/:id {status} + session cookie
   A->>D: look up session by token
   D-->>A: user_id (or nothing → 401)
-  A->>A: validate with updateApplicationSchema
+  A->>A: decode id + body with the contract (400 problem if invalid)
   A->>D: UPDATE … WHERE id = :id AND user_id = :user RETURNING *
   D-->>A: row (or nothing → 404)
   A-->>W: 200 Application
@@ -256,8 +261,10 @@ flowchart LR
   strings and database query parameters (a failed session lookup's would be the session token)
   stripped, and no console breadcrumbs
   ([ADR-0019](adr/0019-monitoring-and-error-tracking.md)).
-- **Logs:** JSON lines from pino (Fastify's logger) on stdout, kept by Docker. Better Auth logs
-  through the same logger. Errors are logged as type, message and stack only, and every line is
+- **Logs:** JSON lines from pino on stdout, kept by Docker. Better Auth logs through the same
+  logger, and so does Effect (request logs, failures) through a bridge in `src/logging.ts`, which
+  must wrap the whole server (`serverLayer`): provided anywhere narrower, Effect's request logs
+  go to the console unredacted. `test/server.test.ts` runs the real server to check it. Errors are logged as type, message and stack only, and every line is
   scrubbed of database query parameters before it's written (`src/logging.ts`, `src/redact.ts`).
 - **Disposable server:** IPs and the data volume are separate OpenTofu resources, so the server
   can be replaced at any time ([infra/README.md](../infra/README.md)).

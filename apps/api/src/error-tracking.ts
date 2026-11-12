@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/node';
+import { Cause, Effect, ErrorReporter, Layer } from 'effect';
 import type { Env } from './env.js';
 import { causeChain, describeError, postgresFields, redactQueryParams } from './redact.js';
 
@@ -86,5 +87,29 @@ export function scrubEvent<T extends Sentry.ErrorEvent>(event: T, hint?: Sentry.
 
   return event;
 }
+
+/**
+ * Sends the failures Effect reports (defects and unhandled errors at the HTTP boundary) to Sentry.
+ * ErrorReporter.make already skips errors marked `ErrorReporter.ignore` (expected 401/404s), so
+ * only unexpected failures arrive here; scrubEvent then runs on each one like on any other event.
+ * Our own instead of @sentry/effect (alpha): this is all of it we use.
+ */
+const reporterLayer = ErrorReporter.layer(
+  [
+    ErrorReporter.make(({ cause, error }) => {
+      // The original failure, not Effect's pretty-printed copy: scrubEvent matches each
+      // exception in the chain to its original error to show query values as kinds.
+      const original = Cause.squash(cause);
+
+      Sentry.captureException(original instanceof Error ? original : error, { level: 'error' });
+    }),
+  ],
+  { mergeWithExisting: true },
+);
+
+export const SentryErrorReporter = Layer.unwrap(
+  // Checked when the layer is built, i.e. after initErrorTracking (production with a DSN, tests).
+  Effect.sync(() => (Sentry.getClient() ? reporterLayer : Layer.empty)),
+);
 
 export { Sentry };

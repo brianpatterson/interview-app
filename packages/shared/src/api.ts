@@ -156,4 +156,11 @@ export class ApplicationsApi extends HttpApiGroup.make('applications')
   .middleware(Authorization)
   .prefix('/api/applications') {}
 
-export class RoundtableApi extends HttpApi.make('roundtable').add(SystemApi).add(ApplicationsApi) {}
+/**
+ * ProblemDetails: a request that fails decoding gets a 400 RFC 9457 problem saying which value
+ * was invalid and why (and an unencodable response a 500), instead of an empty 400.
+ */
+export class RoundtableApi extends HttpApi.make('roundtable')
+  .add(SystemApi)
+  .add(ApplicationsApi)
+  .middleware(HttpApiMiddleware.ProblemDetails) {}

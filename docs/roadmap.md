@@ -65,13 +65,37 @@ green, and updates `CLAUDE.md` and `docs/architecture.md` as it changes them:
    `contract.test.ts` keeps the two in step: same input accepted and rejected, real responses
    decode, same endpoints as Fastify. Writing it also exposed that `jobUrl` accepted
    `javascript:` URLs; both schemas now allow only `http(s)`.
-4. **Server:** `HttpApi` replaces Fastify. That covers the routes; the `Authorization` middleware
-   providing `CurrentUser`; Better Auth mounted with `fromWebHandler`; `@sentry/effect` with the
-   ignore marker on a shared base class for expected errors; log redaction moved to Effect's
-   logger; the leak tests ported first and passing; and the Dockerfile. Tests use the generated
-   client against `toWebHandler`.
+4. ✅ **Server:** `HttpApi` replaces Fastify, in two PRs. 4a moved every test onto a
+   framework-neutral `t.inject()`; 4b swapped the server under it, and the same tests passed
+   unchanged except the planned 400 for malformed ids. The `Authorization` middleware provides
+   `CurrentUser`; Better Auth is mounted with `fromWebHandler`; Sentry gets Effect's failures
+   through our own `ErrorReporter` (not the alpha `@sentry/effect`), and expected errors set the
+   ignore marker; Effect's logs go through pino and its redaction. 400s are RFC 9457 problems
+   that name the invalid value. `server.test.ts` checks the production wiring on a real Node
+   server.
 5. **Web:** the typed client inside TanStack Query; Zod removed.
 6. **Email as Effect services:** sending limits, Resend, and a retry on Resend's 5xx errors.
+
+**Later: `@sentry/effect` instead of our own reporter.** ADR-0022 named `@sentry/effect`; step 4b
+uses our own `ErrorReporter` (`SentryErrorReporter` in `apps/api/src/error-tracking.ts`, about 15
+lines on `@sentry/node`) instead. The reasons: the package is alpha, we'd use only its reporter,
+it initialises Sentry itself (in place of our tuned `initErrorTracking`), and it pins
+`@sentry/node` to its own exact version. Migrate when **any** of these becomes true:
+
+- **We want tracing:** request latency, slow queries, or SLOs for the factory's "Observe" step.
+  Its `SentryEffectTracer` turns Effect's spans into Sentry traces, which our reporter can't do.
+- **It's stable** (no longer marked alpha), so it's no riskier than `@sentry/node`.
+- **It reports something ours doesn't**, for example the route and method on every event. A
+  database-outage event currently loses the request, because Better Auth reports first and
+  Sentry deduplicates the second report.
+- **Ours breaks on an Effect upgrade** (the `ErrorReporter` API is marked unstable) while theirs
+  keeps up.
+
+The move: replace `SentryErrorReporter` with `Sentry.effectLayer(...)`, passing it today's
+`initErrorTracking` options (minimal `dataCollection`, `beforeSend: scrubEvent`, console
+breadcrumbs off), and keep `@sentry/node` on its exact version. It's done when the Sentry tests
+pass unchanged, especially `test/server.test.ts` (the real server, every log line and event
+checked for the session token) and the outage tests in `test/error-tracking.test.ts`.
 
 ## Phase 3: The software factory
 
