@@ -17,7 +17,12 @@ export type ApplicationStatus = z.infer<typeof applicationStatusSchema>;
 export const createApplicationSchema = z.object({
   company: z.string().trim().min(1).max(200),
   jobTitle: z.string().trim().min(1).max(200),
-  jobUrl: z.url().max(2000).nullish(),
+  // http(s) only: the web app renders this as a link, and `javascript:`/`data:` URLs would be a
+  // stored-XSS path if React or the CSP ever stopped blocking them.
+  jobUrl: z
+    .url({ protocol: /^https?$/ })
+    .max(2000)
+    .nullish(),
   status: applicationStatusSchema.optional(),
 });
 

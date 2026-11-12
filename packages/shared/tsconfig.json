@@ -1,1 +1,16 @@
-{ "extends": "../../tsconfig.base.json", "include": ["src"] }
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        // ADR-0022 accepts Effect's unstable APIs (effect/http-api) with exact pins, so this rule
+        // would only flag every deliberate use. Everything else fails `check:effect`.
+        "diagnosticSeverity": {
+          "unstableApiUsage": "off"
+        }
+      }
+    ]
+  },
+  "include": ["src"]
+}

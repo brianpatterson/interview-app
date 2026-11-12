@@ -15,7 +15,7 @@
     "db:generate": "pnpm --filter @roundtable/api db:generate",
     "db:migrate": "pnpm --filter @roundtable/api db:migrate",
     "check:deps": "node scripts/check-dependencies-doc.ts",
-    "check:effect": "effect-tsgo diagnostics --project apps/api/tsconfig.json --strict",
+    "check:effect": "scripts/check-effect.sh",
     "check": "pnpm lint && prettier --check . && pnpm typecheck && pnpm check:effect && pnpm check:deps && pnpm test"
   },
   "devDependencies": {
