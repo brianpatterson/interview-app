@@ -2,6 +2,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Application } from '@roundtable/shared';
 import { env, linkPath, setupTestApp, signUp, signUpUnverified, takeEmail } from './helpers.js';
 
+/** As it arrives on the wire (dates as strings). */
+type ApplicationJson = typeof Application.Encoded;
+
 const t = setupTestApp();
 
 beforeAll(() => t.migrate());
@@ -179,7 +182,7 @@ describe('per-user data', () => {
       payload: { company: 'Alice Co', jobTitle: 'SWE' },
     });
 
-    const { id } = created.json<Application>();
+    const { id } = created.json<ApplicationJson>();
 
     const bobList = await t.inject({
       method: 'GET',
@@ -206,6 +209,6 @@ describe('per-user data', () => {
       headers: { cookie: alice.cookie },
     });
 
-    expect(aliceView.json<Application>().status).toBe('applied');
+    expect(aliceView.json<ApplicationJson>().status).toBe('applied');
   });
 });

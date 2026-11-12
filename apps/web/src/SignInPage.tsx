@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { authConfigSchema, type AuthProvider } from '@roundtable/shared';
+import type { AuthProvider } from '@roundtable/shared';
+import { api } from './api';
 import { authClient } from './auth-client';
 
 type Mode = 'sign-in' | 'sign-up' | 'forgot';
@@ -27,10 +28,7 @@ export function SignInPage() {
     if (window.location.search) window.history.replaceState(null, '', window.location.pathname);
   }, []);
 
-  const config = useQuery({
-    queryKey: ['auth-config'],
-    queryFn: async () => authConfigSchema.parse(await (await fetch('/api/auth-config')).json()),
-  });
+  const config = useQuery({ queryKey: ['auth-config'], queryFn: api.authConfig });
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();

@@ -1,91 +1,116 @@
-// The Effect HttpApi contract (packages/shared/src/api.ts) must describe the API that runs today,
-// until it replaces it (ADR-0022, steps 4–5). These tests keep the two schema sets from drifting:
-// same inputs accepted and rejected, real responses decode, same endpoints.
+// The Effect HttpApi contract (packages/shared/src/index.ts) is the only schema for the API: the
+// server decodes requests with it and the web client encodes them with it (ADR-0022). These tests
+// pin down what it accepts, that real responses decode, and that it lists the routes served.
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ErrorReporter, Exit, Schema } from 'effect';
 import { HttpApi } from 'effect/http-api';
-import * as contract from '@roundtable/shared/api';
-import {
-  applicationSchema,
-  createApplicationSchema,
-  updateApplicationSchema,
-} from '@roundtable/shared';
-import { z } from 'zod';
+import * as contract from '@roundtable/shared';
 import { setupTestApp, signUp } from './helpers.js';
 
 const long = (n: number) => 'x'.repeat(n);
 
-describe('Effect and Zod schemas accept and reject the same input', () => {
+type Case = [input: unknown, decoded: object | false];
+
+// Each case: the input, and what it decodes to (or `false` when it's rejected). These began as
+// the Zod parity cases from step 3, so they're what the API accepted before the Effect contract.
+describe('what the contract accepts', () => {
+  const minimal = { company: 'A', jobTitle: 'B' };
+
   const createCases = {
-    minimal: { company: 'Acme', jobTitle: 'SWE' },
-    'trims text': { company: '  Acme  ', jobTitle: ' SWE ' },
-    'https url': { company: 'A', jobTitle: 'B', jobUrl: 'https://example.com/jobs/1' },
-    'http url': { company: 'A', jobTitle: 'B', jobUrl: 'http://example.com' },
-    'null url': { company: 'A', jobTitle: 'B', jobUrl: null },
-    status: { company: 'A', jobTitle: 'B', status: 'offer' },
-    '200 chars': { company: long(200), jobTitle: long(200) },
-    'unknown key is dropped': { company: 'A', jobTitle: 'B', extra: true },
-    'empty company': { company: '', jobTitle: 'B' },
-    'blank company': { company: '   ', jobTitle: 'B' },
-    '201 chars': { company: long(201), jobTitle: 'B' },
-    'missing jobTitle': { company: 'A' },
-    'number company': { company: 5, jobTitle: 'B' },
-    'javascript url': { company: 'A', jobTitle: 'B', jobUrl: 'javascript:alert(1)' },
-    'data url': { company: 'A', jobTitle: 'B', jobUrl: 'data:text/html,x' },
-    'ftp url': { company: 'A', jobTitle: 'B', jobUrl: 'ftp://x.y' },
-    'not a url': { company: 'A', jobTitle: 'B', jobUrl: 'not a url' },
-    '2001-char url': { company: 'A', jobTitle: 'B', jobUrl: `https://e.com/${long(1987)}` },
-    'unknown status': { company: 'A', jobTitle: 'B', status: 'ghosted' },
-  };
+    minimal: [
+      { company: 'Acme', jobTitle: 'SWE' },
+      { company: 'Acme', jobTitle: 'SWE' },
+    ],
+    'trims text': [
+      { company: '  Acme  ', jobTitle: ' SWE ' },
+      { company: 'Acme', jobTitle: 'SWE' },
+    ],
+    'https url': [
+      { ...minimal, jobUrl: 'https://example.com/jobs/1' },
+      { ...minimal, jobUrl: 'https://example.com/jobs/1' },
+    ],
+    'http url': [
+      { ...minimal, jobUrl: 'http://example.com' },
+      { ...minimal, jobUrl: 'http://example.com' },
+    ],
+    'null url': [
+      { ...minimal, jobUrl: null },
+      { ...minimal, jobUrl: null },
+    ],
+    status: [
+      { ...minimal, status: 'offer' },
+      { ...minimal, status: 'offer' },
+    ],
+    '200 chars': [
+      { company: long(200), jobTitle: long(200) },
+      { company: long(200), jobTitle: long(200) },
+    ],
+    '200 chars once trimmed': [
+      { company: ` ${long(200)} `, jobTitle: 'B' },
+      { company: long(200), jobTitle: 'B' },
+    ],
+    'unknown key is dropped': [{ ...minimal, extra: true }, minimal],
+    'empty company': [{ company: '', jobTitle: 'B' }, false],
+    'blank company': [{ company: '   ', jobTitle: 'B' }, false],
+    '201 chars': [{ company: long(201), jobTitle: 'B' }, false],
+    'missing jobTitle': [{ company: 'A' }, false],
+    'number company': [{ company: 5, jobTitle: 'B' }, false],
+    'javascript url': [{ ...minimal, jobUrl: 'javascript:alert(1)' }, false],
+    'data url': [{ ...minimal, jobUrl: 'data:text/html,x' }, false],
+    'ftp url': [{ ...minimal, jobUrl: 'ftp://x.y' }, false],
+    'not a url': [{ ...minimal, jobUrl: 'not a url' }, false],
+    '2001-char url': [{ ...minimal, jobUrl: `https://e.com/${long(1987)}` }, false],
+    'unknown status': [{ ...minimal, status: 'ghosted' }, false],
+  } satisfies Record<string, Case>;
 
   const updateCases = {
-    status: { status: 'offer' },
-    'trims company': { company: '  Acme ' },
-    'clears url': { jobUrl: null },
-    empty: {},
-    'only unknown keys': { extra: 1 },
-    'empty company': { company: '' },
-    'data url': { jobUrl: 'data:text/html,x' },
-  };
+    status: [{ status: 'offer' }, { status: 'offer' }],
+    'trims company': [{ company: '  Acme ' }, { company: 'Acme' }],
+    'clears url': [{ jobUrl: null }, { jobUrl: null }],
+    empty: [{}, false],
+    'only unknown keys': [{ extra: 1 }, false],
+    'empty company': [{ company: '' }, false],
+    'data url': [{ jobUrl: 'data:text/html,x' }, false],
+  } satisfies Record<string, Case>;
 
   const idCases = {
-    'v4 uuid': '00000000-0000-4000-8000-000000000000',
-    'random uuid': crypto.randomUUID(),
-    'uppercase uuid': crypto.randomUUID().toUpperCase(),
-    'not a uuid': 'abc',
-    'too short': '00000000-0000-4000-8000-00000000000',
-  };
+    'v4 uuid': ['00000000-0000-4000-8000-000000000000', true],
+    'random uuid': [crypto.randomUUID(), true],
+    'uppercase uuid': [crypto.randomUUID().toUpperCase(), true],
+    'not a uuid': ['abc', false],
+    'too short': ['00000000-0000-4000-8000-00000000000', false],
+  } satisfies Record<string, [id: string, valid: boolean]>;
 
-  it.each(Object.entries(createCases))('create: %s', (_name, input) => {
-    const zod = createApplicationSchema.safeParse(input);
+  it.each(Object.entries(createCases))('create: %s', (_name, [input, decoded]) => {
+    const exit = Schema.decodeUnknownExit(contract.CreateApplication)(input);
 
-    expect(Exit.isSuccess(Schema.decodeUnknownExit(contract.CreateApplication)(input))).toBe(
-      zod.success,
-    );
-
-    if (zod.success) {
-      expect(Schema.decodeUnknownSync(contract.CreateApplication)(input)).toEqual(zod.data);
-    }
+    if (decoded === false) expect(Exit.isFailure(exit)).toBe(true);
+    else expect(exit).toEqual(Exit.succeed(decoded));
   });
 
-  it.each(Object.entries(updateCases))('update: %s', (_name, input) => {
-    const zod = updateApplicationSchema.safeParse(input);
+  it.each(Object.entries(updateCases))('update: %s', (_name, [input, decoded]) => {
+    const exit = Schema.decodeUnknownExit(contract.UpdateApplication)(input);
 
-    expect(Exit.isSuccess(Schema.decodeUnknownExit(contract.UpdateApplication)(input))).toBe(
-      zod.success,
-    );
-
-    if (zod.success) {
-      expect(Schema.decodeUnknownSync(contract.UpdateApplication)(input)).toEqual(zod.data);
-    }
+    if (decoded === false) expect(Exit.isFailure(exit)).toBe(true);
+    else expect(exit).toEqual(Exit.succeed(decoded));
   });
 
-  const effectId = Schema.Struct({ id: Schema.String.check(Schema.isUUID()) });
+  const IdParams = Schema.Struct({ id: Schema.String.check(Schema.isUUID()) });
 
-  it.each(Object.entries(idCases))('id: %s', (_name, id) => {
-    expect(Exit.isSuccess(Schema.decodeExit(effectId)({ id }))).toBe(
-      z.uuid().safeParse(id).success,
+  it.each(Object.entries(idCases))('id: %s', (_name, [id, valid]) => {
+    expect(Exit.isSuccess(Schema.decodeExit(IdParams)({ id }))).toBe(valid);
+  });
+
+  // The typed client encodes request bodies before sending them, so text must trim on the way
+  // out too: a form value of " Acme" is sent as "Acme" rather than refused in the browser.
+  it('encodes text trimmed, and refuses blank text before it is sent', () => {
+    const encode = Schema.encodeUnknownExit(contract.CreateApplication);
+
+    expect(encode({ company: ' Acme ', jobTitle: 'SWE\n' })).toEqual(
+      Exit.succeed({ company: 'Acme', jobTitle: 'SWE' }),
     );
+    expect(Exit.isFailure(encode({ company: '  ', jobTitle: 'SWE' }))).toBe(true);
+    expect(Exit.isFailure(encode({ company: long(201), jobTitle: 'SWE' }))).toBe(true);
   });
 });
 
@@ -108,7 +133,7 @@ describe('real responses from the current API decode with the contract', () => {
       payload: { company: 'Acme', jobTitle: 'SWE', jobUrl: 'https://example.com' },
     });
 
-    const id = applicationSchema.parse(created.json()).id;
+    const id = Schema.decodeUnknownSync(contract.Application)(created.json()).id;
 
     const list = await t.inject({
       method: 'GET',

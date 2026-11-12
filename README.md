@@ -7,7 +7,7 @@ Track software-engineering job applications. Also a learning project for systems
 | ----------------- | ---------------------------------------------------- |
 | `apps/web`        | React + Vite frontend (http://localhost:5173)        |
 | `apps/api`        | Effect HttpApi + Drizzle API (http://localhost:3001) |
-| `packages/shared` | Zod schemas and types shared by web and api          |
+| `packages/shared` | API contract (Effect `HttpApi`) and typed client     |
 | `docs/`           | Architecture, decisions, dependency register         |
 
 ## Docs
