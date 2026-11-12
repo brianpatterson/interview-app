@@ -128,10 +128,13 @@ describe('applications API', () => {
     expect(get.statusCode).toBe(404);
   });
 
-  it('returns 404 for unknown or malformed ids', async () => {
+  it('returns 404 for an unknown id and 400 for a malformed one', async () => {
     const unknown = await request('GET', '/api/applications/00000000-0000-4000-8000-000000000000');
     const malformed = await request('GET', '/api/applications/abc');
     expect(unknown.statusCode).toBe(404);
-    expect(malformed.statusCode).toBe(404);
+    // ADR-0022: a malformed id fails the params schema before any handler runs. Existence never
+    // leaks: a well-formed id that's missing or someone else's is still 404.
+    expect(malformed.statusCode).toBe(400);
+    expect(malformed.json()).toMatchObject({ errors: [{ path: ['params', 'id'] }] });
   });
 });

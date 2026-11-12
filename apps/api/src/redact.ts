@@ -1,5 +1,6 @@
+import { EffectDrizzleQueryError } from 'drizzle-orm/effect-core';
 import { DrizzleQueryError } from 'drizzle-orm/errors';
-import pg from 'pg';
+import { Cause } from 'effect';
 import { z } from 'zod';
 
 // Drizzle's DrizzleQueryError message is "Failed query: <sql>\nparams: <values>". The values can be
@@ -50,18 +51,50 @@ export function describeParams(params: readonly unknown[]): string {
     : '<redacted: none>';
 }
 
-/** Every error in a `cause` chain, outermost first. */
+/**
+ * Every error in a `cause` chain, outermost first. Steps through Effect `Cause`s too: Drizzle's
+ * Effect driver wraps the Postgres failure in one (EffectDrizzleQueryError → Cause → SqlError →
+ * the Postgres error), and stopping there would lose why the query failed.
+ */
 export function causeChain(err: Error): Error[] {
   const chain: Error[] = [];
   let current: unknown = err;
 
   while (current instanceof Error && !chain.includes(current)) {
     chain.push(current);
-    current = current.cause;
+    current = Cause.isCause(current.cause) ? Cause.squash(current.cause) : current.cause;
   }
 
   return chain;
 }
+
+/**
+ * Postgres's diagnostic fields, as both drivers expose them (pg's DatabaseError, and the plain
+ * error @effect/sql-pg raises). Only what describes the schema: `detail`, `hint`, `where` and
+ * `internalQuery` can quote values ("Key (email)=(…) already exists"), so they're never read.
+ */
+const PostgresError = z.object({
+  code: z.string().regex(/^[0-9A-Z]{5}$/),
+  severity: z.string().optional(),
+  schema: z.string().optional(),
+  table: z.string().optional(),
+  column: z.string().optional(),
+  dataType: z.string().optional(),
+  constraint: z.string().optional(),
+  routine: z.string().optional(),
+});
+
+/**
+ * SQLSTATE class 22 (data exception) messages quote the rejected input: `invalid input syntax
+ * for type uuid: "…"`. Keep the message, drop what's in quotes.
+ */
+const redactDataException = (err: Error, text: string) => {
+  const postgres = PostgresError.safeParse(err);
+
+  return postgres.success && postgres.data.code.startsWith('22')
+    ? text.replace(/"[^"]*"/g, '"<redacted>"')
+    : text;
+};
 
 /** The parts of an error a person reads. */
 export interface ErrorText {
@@ -69,34 +102,34 @@ export interface ErrorText {
   stack: string;
 }
 
-/** An error's message and stack with any Drizzle query parameters replaced by their kinds. */
+/**
+ * An error's message and stack with any Drizzle query parameters replaced by their kinds (from
+ * either driver), and quoted values removed from Postgres data-exception messages.
+ */
 export function describeError(err: Error): ErrorText {
-  const stack = err.stack ?? `${err.name}: ${err.message}`;
+  const stack = redactDataException(err, err.stack ?? `${err.name}: ${err.message}`);
+  const message = redactDataException(err, err.message);
 
-  if (!(err instanceof DrizzleQueryError)) {
-    return { message: redactQueryParams(err.message), stack: redactQueryParams(stack) };
-  }
+  const params =
+    err instanceof DrizzleQueryError || err instanceof EffectDrizzleQueryError
+      ? err.params
+      : undefined;
 
-  const paramSummary = err.params ? describeParams(err.params) : '<redacted>';
+  const paramSummary = params ? describeParams(params) : '<redacted>';
 
   return {
-    message: redactQueryParams(err.message, paramSummary),
+    message: redactQueryParams(message, paramSummary),
     stack: redactQueryParams(stack, paramSummary),
   };
 }
 
-/**
- * Postgres's diagnostic fields from the first database error in the chain: what failed and where
- * in the schema (SQLSTATE code, table, constraint). Left out: `detail`, `hint`, `where` and
- * `internalQuery`, which can quote values ("Key (email)=(…) already exists").
- */
+/** Postgres's diagnostic fields from the first database error in the chain (see PostgresError). */
 export function postgresFields(err: Error) {
-  const dbError = causeChain(err).find((e) => e instanceof pg.DatabaseError);
+  for (const link of causeChain(err)) {
+    const postgres = PostgresError.safeParse(link);
 
-  if (!dbError) return undefined;
+    if (postgres.success) return postgres.data;
+  }
 
-  const { code, severity, schema, table, column, dataType, constraint, routine } = dbError;
-  const fields = { code, severity, schema, table, column, dataType, constraint, routine };
-
-  return Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined));
+  return undefined;
 }

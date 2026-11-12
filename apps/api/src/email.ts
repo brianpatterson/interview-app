@@ -1,4 +1,4 @@
-import type { FastifyBaseLogger } from 'fastify';
+import type { Log } from './logging.js';
 import type { Env } from './env.js';
 
 /** Limits are counted per kind, so verification retries never block a password reset. */
@@ -17,7 +17,7 @@ export type SendEmail = (email: Email) => Promise<void>;
  * Development mailer: logs the email instead of sending it, so links (password resets, email
  * verification) can be copied from the API's log.
  */
-export function logMailer(log: Pick<FastifyBaseLogger, 'info'>): SendEmail {
+export function logMailer(log: Pick<Log, 'info'>): SendEmail {
   return async (email) => {
     log.info({ email }, `Email to ${email.to}: ${email.subject}`);
   };
@@ -50,7 +50,7 @@ export function resendMailer(
 }
 
 /** Resend when it's configured (always in production; see env.ts), otherwise the log. */
-export function mailerFromEnv(env: Env, log: Pick<FastifyBaseLogger, 'info'>): SendEmail {
+export function mailerFromEnv(env: Env, log: Pick<Log, 'info'>): SendEmail {
   return env.RESEND_API_KEY && env.EMAIL_FROM
     ? resendMailer(env.RESEND_API_KEY, env.EMAIL_FROM)
     : logMailer(log);

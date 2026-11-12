@@ -1,5 +1,5 @@
 import { lt, sql } from 'drizzle-orm';
-import type { FastifyBaseLogger } from 'fastify';
+import type { Log } from './logging.js';
 import type { Db } from './db/index.js';
 import { emailSends } from './db/schema.js';
 import type { SendEmail } from './email.js';
@@ -26,7 +26,7 @@ export function limitedMailer(
   db: Db,
   send: SendEmail,
   limits: EmailLimits,
-  log: Pick<FastifyBaseLogger, 'warn' | 'error'>,
+  log: Pick<Log, 'warn' | 'error'>,
 ): SendEmail {
   return async (email) => {
     const recipient = email.to.toLowerCase();

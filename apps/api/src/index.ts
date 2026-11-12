@@ -1,25 +1,32 @@
-import { buildApp } from './app.js';
+import { NodeRuntime } from '@effect/platform-node';
+import { Effect, Layer } from 'effect';
+import { serverLayer } from './app.js';
 import { createDb } from './db/index.js';
 import { loadEnv } from './env.js';
 import { initErrorTracking, Sentry } from './error-tracking.js';
+import { createLogger } from './logging.js';
 
 const env = loadEnv();
 
 initErrorTracking(env);
 
+const log = createLogger();
 const { db, pool } = createDb(env.DATABASE_URL);
-const app = buildApp(db, env);
 
-await app.listen({ port: env.API_PORT, host: '0.0.0.0' });
+// Released last: once the server has stopped and in-flight requests have finished, close the
+// Promise pool (Better Auth, email limits) and send any queued error reports.
+const Cleanup = Layer.effectDiscard(
+  Effect.addFinalizer(() =>
+    Effect.promise(async () => {
+      log.info('Shutting down');
+      await pool.end();
+      await Sentry.close(2000);
+    }),
+  ),
+);
 
-// Docker sends SIGTERM on stop/deploy. Finish in-flight requests, then release DB connections,
-// instead of being killed mid-request when the 10-second grace period runs out.
-for (const signal of ['SIGTERM', 'SIGINT'] as const) {
-  process.once(signal, async () => {
-    app.log.info({ signal }, 'Shutting down');
-    await app.close();
-    await pool.end();
-    await Sentry.close(2000); // send any queued error reports
-    process.exit(0);
-  });
-}
+const Server = serverLayer({ env, db, log, port: env.API_PORT }).pipe(Layer.provide(Cleanup));
+
+// Docker sends SIGTERM on stop and deploy: runMain interrupts the server, which stops accepting
+// connections and lets in-flight requests finish before the layers above are released.
+Layer.launch(Server).pipe(NodeRuntime.runMain);

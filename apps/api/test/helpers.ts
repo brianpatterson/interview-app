@@ -1,10 +1,14 @@
 import { sql } from 'drizzle-orm';
-import type { FastifyInstance } from 'fastify';
-import { buildApp } from '../src/app.js';
+import { Effect, Layer } from 'effect';
+import { HttpRouter, HttpServer } from 'effect/http';
+import { HttpApi } from 'effect/http-api';
+import { RoundtableApi } from '@roundtable/shared/api';
+import { appLayer, observabilityLayer } from '../src/app.js';
 import { createDb } from '../src/db/index.js';
 import { runMigrations } from '../src/db/migrate.js';
 import type { Email, SendEmail } from '../src/email.js';
 import { loadEnv, type Env } from '../src/env.js';
+import { createLogger } from '../src/logging.js';
 
 export const env = loadEnv({
   DATABASE_URL: process.env.TEST_DATABASE_URL ?? 'postgres://app:app@localhost:5432/app_test',
@@ -63,31 +67,39 @@ export function setupTestApp(options: TestAppOptions = {}) {
   const admin = createDb(env.DATABASE_URL);
   const appDb = options.databaseUrl ? createDb(options.databaseUrl) : admin;
   const sentEmails: Email[] = [];
+  const appEnv: Env = { ...env, ...options.env };
 
-  const app = buildApp(
-    appDb.db,
-    { ...env, ...options.env },
-    {
-      logger: Boolean(options.logStream),
-      logStream: options.logStream,
-      sendEmail:
-        options.sendEmail ??
-        (async (email) => {
-          sentEmails.push(email);
-        }),
-    },
+  if (options.databaseUrl) appEnv.DATABASE_URL = options.databaseUrl;
+  const log = createLogger({ stream: options.logStream, enabled: Boolean(options.logStream) });
+
+  const routes = appLayer({
+    env: appEnv,
+    db: appDb.db,
+    log,
+    sendEmail:
+      options.sendEmail ??
+      (async (email) => {
+        sentEmails.push(email);
+      }),
+  });
+
+  const crash = HttpRouter.add('GET', '/api/test-crash', Effect.die(new Error('route exploded')));
+
+  // The same routes index.ts serves, as a fetch-style handler: no port, same pipeline.
+  const { handler, dispose } = HttpRouter.toWebHandler(
+    (options.crashRoute ? Layer.mergeAll(routes, crash) : routes).pipe(
+      Layer.provideMerge(observabilityLayer(log)),
+      Layer.provide(HttpServer.layerServices),
+    ),
+    { disableLogger: !options.logStream },
   );
 
-  if (options.crashRoute) {
-    app.get('/api/test-crash', async () => {
-      throw new Error('route exploded');
-    });
-  }
+  const inject = (request: InjectRequest) => injectWeb(handler, request);
 
   return {
-    inject: (request: InjectRequest) => injectFastify(app, request),
+    inject,
     /** Every route the server answers, as "METHOD /path", except Better Auth's `/api/auth/*`. */
-    routes: () => fastifyRoutes(app),
+    routes: () => answeredRoutes(inject),
     db: admin.db,
     sentEmails,
     migrate: () => runMigrations(admin.db),
@@ -98,7 +110,7 @@ export function setupTestApp(options: TestAppOptions = {}) {
       );
     },
     close: async () => {
-      await app.close();
+      await dispose();
       await admin.pool.end();
 
       if (appDb !== admin) await appDb.pool.end();
@@ -134,64 +146,73 @@ export function parseSetCookies(setCookies: readonly string[]): Cookie[] {
   });
 }
 
-async function injectFastify(
-  app: FastifyInstance,
-  request: InjectRequest,
-): Promise<InjectResponse> {
-  // A JSON body is sent the way a browser or client would: serialised, with its content type.
-  const hasBody = request.payload !== undefined;
+type WebHandler = (request: Request) => Promise<Response>;
 
-  const res = await app.inject({
-    method: request.method,
-    url: request.url,
-    headers: hasBody ? { 'content-type': 'application/json', ...request.headers } : request.headers,
-    body: hasBody ? JSON.stringify(request.payload) : undefined,
+async function injectWeb(handler: WebHandler, request: InjectRequest): Promise<InjectResponse> {
+  // A JSON body is sent the way a browser or client would: serialised, with its content type.
+  // GET and DELETE carry no body, as with a real client.
+  const hasBody =
+    request.payload !== undefined && request.method !== 'GET' && request.method !== 'DELETE';
+
+  const headers = new Headers(request.headers);
+
+  if (hasBody && !headers.has('content-type')) headers.set('content-type', 'application/json');
+
+  const res = await handler(
+    new Request(new URL(request.url, 'http://localhost'), {
+      method: request.method,
+      headers,
+      body: hasBody ? JSON.stringify(request.payload) : undefined,
+    }),
+  );
+
+  const body = await res.text();
+  const responseHeaders: Record<string, string> = {};
+
+  res.headers.forEach((value, name) => {
+    if (name !== 'set-cookie') responseHeaders[name] = value;
   });
 
-  const headers: Record<string, string> = {};
-  const setCookies: string[] = [];
-
-  for (const [name, value] of Object.entries(res.headers)) {
-    if (value === undefined) continue;
-
-    if (name === 'set-cookie') setCookies.push(...[value].flat().map(String));
-    else headers[name] = [value].flat().join(', ');
-  }
-
   return {
-    statusCode: res.statusCode,
-    headers,
-    cookies: parseSetCookies(setCookies),
-    body: res.body,
-    json: () => JSON.parse(res.body),
+    statusCode: res.status,
+    headers: responseHeaders,
+    cookies: parseSetCookies(res.headers.getSetCookie()),
+    body,
+    json: () => JSON.parse(body),
   };
 }
 
-/** Fastify draws routes as an indented tree; rebuild full paths from the parents of each line. */
-async function fastifyRoutes(app: FastifyInstance): Promise<string[]> {
-  await app.ready();
-  const routes = new Set<string>();
-  const parents: string[] = [];
+/**
+ * The contract's endpoints that the running server actually answers. Unauthenticated, every
+ * applications endpoint stops at the session check (401) and the public ones answer (200); an
+ * endpoint the server doesn't serve gets the router's 404 instead.
+ */
+async function answeredRoutes(inject: (request: InjectRequest) => Promise<InjectResponse>) {
+  const declared: { method: InjectRequest['method']; path: string }[] = [];
 
-  for (const line of app.printRoutes({ commonPrefix: false }).split('\n')) {
-    const match = line.match(/^(.*?)[├└]── (\S+) \(([^)]+)\)/);
+  HttpApi.reflect(RoundtableApi, {
+    onGroup: () => {},
+    onEndpoint: ({ endpoint }) => {
+      if (isInjectMethod(endpoint.method))
+        declared.push({ method: endpoint.method, path: endpoint.path });
+    },
+  });
 
-    if (!match?.[2] || !match[3]) continue;
-    const depth = (match[1] ?? '').length / 4;
-    const path = (parents[depth - 1] ?? '') + match[2];
+  const answered: string[] = [];
 
-    parents[depth] = path;
+  for (const { method, path } of declared) {
+    const url = path.replace(':id', crypto.randomUUID());
+    const hasBody = method === 'POST' || method === 'PATCH';
+    const res = await inject({ method, url, payload: hasBody ? {} : undefined });
 
-    // Better Auth's `/api/auth/*` route prints as `*`.
-    if (match[2] === '*') continue;
-
-    for (const method of match[3].split(', ')) {
-      if (method !== 'HEAD') routes.add(`${method} ${path}`);
-    }
+    if (res.statusCode !== 404) answered.push(`${method} ${path}`);
   }
 
-  return [...routes].sort();
+  return answered.sort();
 }
+
+const isInjectMethod = (method: string): method is InjectRequest['method'] =>
+  ['GET', 'POST', 'PATCH', 'DELETE'].includes(method);
 
 export type TestApp = ReturnType<typeof setupTestApp>;
 

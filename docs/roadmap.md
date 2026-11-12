@@ -65,11 +65,14 @@ green, and updates `CLAUDE.md` and `docs/architecture.md` as it changes them:
    `contract.test.ts` keeps the two in step: same input accepted and rejected, real responses
    decode, same endpoints as Fastify. Writing it also exposed that `jobUrl` accepted
    `javascript:` URLs; both schemas now allow only `http(s)`.
-4. **Server:** `HttpApi` replaces Fastify. That covers the routes; the `Authorization` middleware
-   providing `CurrentUser`; Better Auth mounted with `fromWebHandler`; `@sentry/effect` with the
-   ignore marker on a shared base class for expected errors; log redaction moved to Effect's
-   logger; the leak tests ported first and passing; and the Dockerfile. Tests use the generated
-   client against `toWebHandler`.
+4. ✅ **Server:** `HttpApi` replaces Fastify, in two PRs. 4a moved every test onto a
+   framework-neutral `t.inject()`; 4b swapped the server under it, and the same tests passed
+   unchanged except the planned 400 for malformed ids. The `Authorization` middleware provides
+   `CurrentUser`; Better Auth is mounted with `fromWebHandler`; Sentry gets Effect's failures
+   through our own `ErrorReporter` (not the alpha `@sentry/effect`), and expected errors set the
+   ignore marker; Effect's logs go through pino and its redaction. 400s are RFC 9457 problems
+   that name the invalid value. `server.test.ts` checks the production wiring on a real Node
+   server.
 5. **Web:** the typed client inside TanStack Query; Zod removed.
 6. **Email as Effect services:** sending limits, Resend, and a retry on Resend's 5xx errors.
 
