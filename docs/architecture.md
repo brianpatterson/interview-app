@@ -48,19 +48,57 @@ flowchart LR
   web -->|JSON over /api/*<br/>session cookie| api
   api -->|SQL via Drizzle| db
   api -.OAuth.-> idp[GitHub / Google]
-  shared[[packages/shared<br/>Effect HttpApi contract + typed client]] -.imported by.-> web
-  shared -.imported by.-> api
+  contract[[packages/contract<br/>Effect HttpApi contract + typed client]] -.imported by.-> web
+  contract -.imported by.-> api
 ```
 
-| Container         | Responsibility                                                                                                           | Tech                                                                                                                   |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| `apps/web`        | UI. Server state is cached and refetched with TanStack Query, through the typed client.                                  | React 19, Vite 8, Effect 4 (client only)                                                                               |
-| `apps/api`        | HTTP API, auth (sessions, OAuth), validation, persistence                                                                | Effect 4 HttpApi, Better Auth, Drizzle ORM (Effect driver on `@effect/sql-pg`, Promise driver on `pg` for Better Auth) |
-| `packages/shared` | API contract as an Effect `HttpApi` definition, and the typed client generated from it that the web app calls (ADR-0022) | Effect 4                                                                                                               |
-| PostgreSQL        | System of record                                                                                                         | Postgres 17 (Docker locally)                                                                                           |
+| Container           | Responsibility                                                                                                                                | Tech                                                                                                                   |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `apps/web`          | UI. Server state is cached and refetched with TanStack Query, through the typed client.                                                       | React 19, Vite 8, Effect 4 (client only)                                                                               |
+| `apps/api`          | HTTP API, auth (sessions, OAuth), validation, persistence                                                                                     | Effect 4 HttpApi, Better Auth, Drizzle ORM (Effect driver on `@effect/sql-pg`, Promise driver on `pg` for Better Auth) |
+| `packages/contract` | API contract as an Effect `HttpApi` definition, one file per module, and the typed client generated from it that the web app calls (ADR-0022) | Effect 4                                                                                                               |
+| PostgreSQL          | System of record                                                                                                                              | Postgres 17 (Docker locally)                                                                                           |
 
 In local dev, Vite proxies `/api/*` to the API, so the browser sees one origin and there is no
 CORS setup. Production will keep the same-origin approach (section 7).
+
+### Modules
+
+Both apps are modular monoliths ([ADR-0023](adr/0023-modular-monolith-layout.md)): one deploy
+each, with the code organized by module so a module can later become its own service or
+microfrontend. Dependencies run one way, and `pnpm check:boundaries` fails on any import that
+breaks the rules (another module's internals, the assembly, or another module's tables).
+
+```mermaid
+flowchart TB
+  subgraph api[apps/api/src]
+    server[server.ts<br/>assembles modules] --> applications & identity & email
+    applications[modules/applications<br/>CRUD, applications table] --> identity
+    identity[modules/identity<br/>Better Auth, Authorization, auth tables] --> email
+    email[modules/email<br/>Mailer, transport, email_sends] --> platform
+    applications --> platform
+    identity --> platform
+    platform[platform/<br/>config, database, observability]
+  end
+  subgraph web[apps/web/src]
+    shell[shell/<br/>providers, layout] --> wapps[modules/applications] & wid[modules/identity]
+    wapps --> wshared[shared/<br/>API client, styles]
+    wid --> wshared
+  end
+```
+
+| Module       | API                                                                          | Web                                               | Contract          |
+| ------------ | ---------------------------------------------------------------------------- | ------------------------------------------------- | ----------------- |
+| applications | CRUD handlers, `applications` table                                          | `ApplicationsPage` (form + table), its query keys | `applications.ts` |
+| identity     | Better Auth, the `Authorization` middleware, `/api/auth-config`, auth tables | `AuthGate`, sign-in and password-reset pages      | `identity.ts`     |
+| email        | `Mailer` (sending limits), `EmailTransport` (Resend), `email_sends`          | none                                              | none              |
+| (system)     | `/api/health`, in `server.ts`                                                | none                                              | `system.ts`       |
+
+Each module's `index.ts` is its public interface, and its tests sit next to it. A future split
+moves a module folder and its tables out, and gives the remaining modules a second adapter at
+the seam: for identity, the `Authorization` middleware would ask the identity service instead
+of Better Auth in-process. The applications table's foreign key to `users` is the one place a
+module reaches into another's tables, and would go with that split.
 
 ## 4. Data model
 
@@ -106,7 +144,7 @@ erDiagram
 
 - **Tenant isolation:** every `applications` query filters on `user_id` from the session. Another
   user's ids return 404, never 403, so the API doesn't confirm they exist. Tested in
-  `apps/api/test/auth.test.ts`.
+  `apps/api/src/modules/identity/identity.test.ts`.
 - `users`, `sessions`, `accounts` and `verifications` are shaped by Better Auth
   ([ADR-0011](adr/0011-authentication.md)). One user can have several `accounts` (a password plus
   GitHub, say), which is how account linking works.
@@ -115,19 +153,21 @@ accepted`, plus the terminal states `rejected` and `withdrawn`. Transitions aren
   ([ADR-0006](adr/0006-status-enum-and-dates.md)).
 - Index `applications_user_id_updated_at_idx (user_id, updated_at DESC)` serves the only list
   query: one user's applications, newest first.
-- Source of truth: `apps/api/src/db/schema.ts`. Migrations are generated into `apps/api/drizzle/`,
+- Source of truth: each module's `schema.ts` (`apps/api/src/modules/*/schema.ts`): identity owns
+  the auth tables, applications its own, email `email_sends`. One database and one migrations
+  folder. Migrations are generated into `apps/api/drizzle/`,
   one folder each (`<timestamp>_<name>/migration.sql` + `snapshot.json`, Drizzle 1.0's layout)
   ([ADR-0004](adr/0004-drizzle-orm-and-migrations.md), [ADR-0022](adr/0022-effect-for-the-api.md)).
 
 ## 5. API
 
 All routes are JSON under `/api`. The server is the Effect `HttpApi` definition in
-`@roundtable/shared` ([ADR-0022](adr/0022-effect-for-the-api.md)): requests are decoded by its
+`@roundtable/contract` ([ADR-0022](adr/0022-effect-for-the-api.md)): requests are decoded by its
 schemas before any handler runs, a failed decode is a 400 RFC 9457 problem
 (`application/problem+json`) naming each invalid value and why, and responses are encoded
 through their schemas, so columns not in them (`userId`) never leave the server. Better Auth's
 routes are mounted beside it. The web app calls the API through the client generated from the
-same definition (`@roundtable/shared/client`): request bodies are encoded and checked before
+same definition (`@roundtable/contract/client`): request bodies are encoded and checked before
 they're sent, so invalid input fails in the browser with the server's own message; responses
 are decoded (dates become `Date`s), so a contract mismatch fails at the boundary instead of deep
 in the UI; and the contract's errors (`Unauthorized`, `ApplicationNotFound`) become messages for
@@ -259,7 +299,7 @@ flowchart LR
   5xx, the per-second rate limit or a network error is retried twice more within about two
   seconds, under one idempotency key so Resend never delivers it twice; a 4xx or a used-up quota
   fails at once. Either way, the failure is logged and reported to Sentry with the email kind
-  (`src/email.ts`, `src/email-limits.ts`).
+  (`modules/email/`).
 - **Monitoring:** Better Stack checks `/api/health` (must report the database up) every 3
   minutes from outside, and opens an incident only if it's still failing 60 seconds later, so a
   deploy's ~10-second gap doesn't page anyone, and expects a ping from every nightly backup. Sentry receives unexpected
@@ -268,10 +308,10 @@ flowchart LR
   stripped, and no console breadcrumbs
   ([ADR-0019](adr/0019-monitoring-and-error-tracking.md)).
 - **Logs:** JSON lines from pino on stdout, kept by Docker. Better Auth logs through the same
-  logger, and so does Effect (request logs, failures) through a bridge in `src/logging.ts`, which
+  logger, and so does Effect (request logs, failures) through a bridge in `platform/observability/logging.ts`, which
   must wrap the whole server (`serverLayer`): provided anywhere narrower, Effect's request logs
   go to the console unredacted. `test/server.test.ts` runs the real server to check it. Errors are logged as type, message and stack only, and every line is
-  scrubbed of database query parameters before it's written (`src/logging.ts`, `src/redact.ts`).
+  scrubbed of database query parameters before it's written (`platform/observability/`).
 - **Disposable server:** IPs and the data volume are separate OpenTofu resources, so the server
   can be replaced at any time ([infra/README.md](../infra/README.md)).
 - **Infrastructure state:** OpenTofu state is in R2, encrypted on the operator's machine before
