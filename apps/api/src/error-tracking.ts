@@ -96,12 +96,17 @@ export function scrubEvent<T extends Sentry.ErrorEvent>(event: T, hint?: Sentry.
  */
 const reporterLayer = ErrorReporter.layer(
   [
-    ErrorReporter.make(({ cause, error }) => {
+    ErrorReporter.make(({ cause, error, attributes }) => {
       // The original failure, not Effect's pretty-printed copy: scrubEvent matches each
       // exception in the chain to its original error to show query values as kinds.
       const original = Cause.squash(cause);
 
-      Sentry.captureException(original instanceof Error ? original : error, { level: 'error' });
+      // `attributes` are what the error declares with ErrorReporter.attributes (e.g. the email
+      // kind): our own fields, never user data.
+      Sentry.captureException(original instanceof Error ? original : error, {
+        level: 'error',
+        extra: attributes,
+      });
     }),
   ],
   { mergeWithExisting: true },
