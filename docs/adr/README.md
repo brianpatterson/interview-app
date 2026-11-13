@@ -32,3 +32,4 @@ you'd want to explain in an interview. Copy [template.md](template.md).
 | 0018 | [Limit auth emails per IP, per address and per day](0018-email-sending-limits.md)                                | Accepted                                             |
 | 0021 | [Lint with Oxlint only, including the anti-slop rules](0021-oxlint-with-anti-slop-rules.md)                      | Accepted                                             |
 | 0022 | [Build the API on Effect 4: HttpApi, an Effect Schema contract and Drizzle 1.0](0022-effect-for-the-api.md)      | Accepted                                             |
+| 0023 | [Organize the code by module, as a modular monolith](0023-modular-monolith-layout.md)                            | Accepted                                             |

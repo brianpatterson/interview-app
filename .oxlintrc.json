@@ -276,7 +276,7 @@
       }
     },
     {
-      "files": ["apps/api/**", "packages/shared/**"],
+      "files": ["apps/api/**", "packages/contract/**"],
       "rules": {
         "anti-slop-effect/no-manual-effect-error-tag": "error",
         "anti-slop-effect/no-manual-tag-comparison": "error",

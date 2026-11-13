@@ -3,7 +3,7 @@ import {
   APPLICATION_STATUSES,
   isApplicationStatus,
   type ApplicationStatus,
-} from '@roundtable/shared';
+} from '@roundtable/contract';
 import { api } from './api';
 
 const formatDate = (date: Date) => date.toLocaleDateString();

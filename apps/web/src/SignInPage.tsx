@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import type { AuthProvider } from '@roundtable/shared';
+import type { AuthProvider } from '@roundtable/contract';
 import { api } from './api';
 import { authClient } from './auth-client';
 

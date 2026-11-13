@@ -5,6 +5,6 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-for project in apps/api packages/shared; do
+for project in apps/api packages/contract; do
   effect-tsgo diagnostics --project "$project/tsconfig.json" --strict "$@"
 done

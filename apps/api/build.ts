@@ -1,9 +1,9 @@
 // Bundles the API into self-contained ESM files for the production image: no node_modules, no
-// TypeScript at runtime. The workspace package (@roundtable/shared) and npm deps are inlined.
+// TypeScript at runtime. The workspace package (@roundtable/contract) and npm deps are inlined.
 import { build } from 'esbuild';
 
 await build({
-  entryPoints: ['src/index.ts', 'src/migrate.ts'],
+  entryPoints: ['src/main.ts', 'src/migrate.ts'],
   outdir: 'dist',
   bundle: true,
   platform: 'node',

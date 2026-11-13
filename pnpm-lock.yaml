@@ -193,9 +193,9 @@ importers:
       '@effect/sql-pg':
         specifier: 4.1.3
         version: 4.1.3(effect@4.1.3)
-      '@roundtable/shared':
+      '@roundtable/contract':
         specifier: workspace:*
-        version: link:../../packages/shared
+        version: link:../../packages/contract
       '@sentry/node':
         specifier: ^11.11.0
         version: 11.11.0
@@ -236,9 +236,9 @@ importers:
 
   apps/web:
     dependencies:
-      '@roundtable/shared':
+      '@roundtable/contract':
         specifier: workspace:*
-        version: link:../../packages/shared
+        version: link:../../packages/contract
       '@tanstack/react-query':
         specifier: ^5.107.1
         version: 5.107.1(@types/react@19.3.0)(react@19.3.1)
@@ -265,7 +265,7 @@ importers:
         specifier: ^8.3.7
         version: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)
 
-  packages/shared:
+  packages/contract:
     dependencies:
       effect:
         specifier: 4.1.3

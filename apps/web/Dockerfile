@@ -7,10 +7,10 @@ WORKDIR /repo
 RUN npm install --global pnpm@12.16.1
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json apps/web/
-COPY packages/shared/package.json packages/shared/
+COPY packages/contract/package.json packages/contract/
 RUN pnpm install --frozen-lockfile --filter @roundtable/web...
 COPY tsconfig.base.json ./
-COPY packages/shared packages/shared
+COPY packages/contract packages/contract
 COPY apps/web apps/web
 RUN pnpm --filter @roundtable/web build
 

@@ -4,7 +4,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ErrorReporter, Exit, Schema } from 'effect';
 import { HttpApi } from 'effect/http-api';
-import * as contract from '@roundtable/shared';
+import * as contract from '@roundtable/contract';
 import { setupTestApp, signUp } from './helpers.js';
 
 const long = (n: number) => 'x'.repeat(n);
