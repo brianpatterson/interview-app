@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { Redacted } from 'effect';
 import type { ErrorEvent } from '@sentry/node';
 import { initErrorTracking, scrubEvent, Sentry } from '../src/error-tracking.js';
 import { redactQueryParams } from '../src/redact.js';
@@ -54,7 +55,7 @@ describe('error reporting', () => {
   const events: ErrorEvent[] = [];
   beforeAll(() => {
     initErrorTracking(
-      { ...env, SENTRY_DSN: 'https://public@o0.ingest.sentry.io/0' },
+      { ...env, SENTRY_DSN: Redacted.make('https://public@o0.ingest.sentry.io/0') },
       {
         // Capture instead of sending anywhere.
         beforeSend: (event, hint) => {

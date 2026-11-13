@@ -67,8 +67,12 @@ pnpm check          # lint + format + typecheck + Effect diagnostics + dependenc
    `Authorization` middleware, and every query filters on the `CurrentUser` it provides.
    Another user's rows are a 404, never a 403 (a malformed id is a 400 from the params schema,
    which reveals nothing). Add a cross-user test for any new resource.
-9. **Config:** new environment variables go in `src/env.ts` (validated), `.env.example`
-   (documented), and, if production needs them, `compose.prod.yml` and `.env.prod.example`. Never commit secrets. `.env` is git-ignored.
+9. **Config:** new environment variables go in `src/env.ts` (an Effect Schema read through
+   `Config`), `.env.example` (documented), and, if production needs them, `compose.prod.yml` and
+   `.env.prod.example`. A secret (a key, password, token, or a URL that contains one) is a
+   `Secret` there, so it's a `Redacted` that prints as `<redacted>`: unwrap it with
+   `Redacted.value` only where it's handed to the library that uses it, and add it to the leak
+   test in `test/env.test.ts`. Never commit secrets. `.env` is git-ignored.
 10. **Infrastructure:** changes to `infra/` must pass `tofu fmt -check`, `tofu validate` and
     `infra/test-cloud-init.sh`. Never run `tofu apply` yourself; a human reviews the plan and
     applies it.
@@ -80,8 +84,8 @@ pnpm check          # lint + format + typecheck + Effect diagnostics + dependenc
   anti-slop rules (`tools/oxlint/anti-slop/`). In `.oxlintrc.json`, always write rules with their
   plugin prefix (`typescript/no-namespace`); a bare name can resolve to another plugin's rule
   and silently do nothing. Fix findings, don't suppress them: put a `// SAFETY:` comment stating the checked
-  invariant before any type assertion, parse input with a schema (Effect Schema; Zod
-  only for `env.ts` and `redact.ts`) instead of passing `unknown` or `object` around, and let `pnpm lint:fix` add blank lines. Update the plugin only through the
+  invariant before any type assertion, parse input with Effect Schema instead of passing
+  `unknown` or `object` around, and let `pnpm lint:fix` add blank lines. Update the plugin only through the
   `install-anti-slop` skill.
 - TypeScript 7 (the native Go port, `^7.0`). Vite, Vitest, tsx and esbuild strip types
   themselves and Oxlint has no type-aware rules on. Two tools use the compiler: `tsc`, and

@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/node';
-import { Cause, Effect, ErrorReporter, Layer } from 'effect';
+import { Cause, Effect, ErrorReporter, Layer, Redacted } from 'effect';
 import type { Env } from './env.js';
 import { causeChain, describeError, postgresFields, redactQueryParams } from './redact.js';
 
@@ -14,7 +14,7 @@ import { causeChain, describeError, postgresFields, redactQueryParams } from './
 export function initErrorTracking(env: Env, overrides: Partial<Sentry.NodeOptions> = {}) {
   if (!env.SENTRY_DSN) return false;
   Sentry.init({
-    dsn: env.SENTRY_DSN,
+    dsn: Redacted.value(env.SENTRY_DSN),
     environment: env.NODE_ENV ?? 'development',
     release: env.SENTRY_RELEASE,
     // v11's defaults collect cookies, bodies, query strings and local variables (minus values

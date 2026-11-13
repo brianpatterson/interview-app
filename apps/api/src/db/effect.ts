@@ -14,8 +14,6 @@ const makeDatabase = PgDrizzle.makeWithDefaults({ paramsInErrors: true });
 export class Database extends Context.Service<Database, Effect.Success<typeof makeDatabase>>()(
   'roundtable/Database',
 ) {
-  static readonly layer = (url: string) =>
-    Layer.effect(Database, makeDatabase).pipe(
-      Layer.provide(PgClient.layer({ url: Redacted.make(url) })),
-    );
+  static readonly layer = (url: Redacted.Redacted<string>) =>
+    Layer.effect(Database, makeDatabase).pipe(Layer.provide(PgClient.layer({ url })));
 }

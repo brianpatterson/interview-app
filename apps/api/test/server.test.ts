@@ -3,9 +3,8 @@
 // logs to the console unredacted under the real server, so this checks the real one.
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { ErrorEvent } from '@sentry/node';
-import { Effect, Fiber, Layer } from 'effect';
+import { Effect, Fiber, Layer, Redacted, Schema } from 'effect';
 import { createServer } from 'node:net';
-import { z } from 'zod';
 import { serverLayer } from '../src/app.js';
 import { createDb } from '../src/db/index.js';
 import { initErrorTracking, scrubEvent, Sentry } from '../src/error-tracking.js';
@@ -18,7 +17,9 @@ const freePort = () =>
 
     probe.once('error', reject);
     probe.listen(0, '127.0.0.1', () => {
-      const { port } = z.object({ port: z.number() }).parse(probe.address());
+      const { port } = Schema.decodeUnknownSync(Schema.Struct({ port: Schema.Finite }))(
+        probe.address(),
+      );
 
       probe.close(() => resolve(port));
     });
@@ -34,7 +35,8 @@ describe('the production server (serverLayer)', () => {
 
   // Sign in on a working database, then serve with an unreachable one: the session lookup fails.
   const t = setupTestApp();
-  const dead = createDb('postgres://app:app@localhost:1/nowhere');
+  const deadUrl = Redacted.make('postgres://app:app@localhost:1/nowhere');
+  const dead = createDb(deadUrl);
   let cookie = '';
   let token = '';
   let base = '';
@@ -42,7 +44,7 @@ describe('the production server (serverLayer)', () => {
 
   beforeAll(async () => {
     initErrorTracking(
-      { ...env, SENTRY_DSN: 'https://public@o0.ingest.sentry.io/0' },
+      { ...env, SENTRY_DSN: Redacted.make('https://public@o0.ingest.sentry.io/0') },
       {
         beforeSend: (event, hint) => {
           events.push(scrubEvent(event, hint));
@@ -62,7 +64,7 @@ describe('the production server (serverLayer)', () => {
     server = Effect.runFork(
       Layer.launch(
         serverLayer({
-          env: { ...env, DATABASE_URL: 'postgres://app:app@localhost:1/nowhere' },
+          env: { ...env, DATABASE_URL: deadUrl },
           db: dead.db,
           log: createLogger({ stream: { write: (line) => void lines.push(line) } }),
           port,
