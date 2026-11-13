@@ -1,3 +1,4 @@
+import { Redacted } from 'effect';
 import type { Log } from './logging.js';
 import type { Env } from './env.js';
 
@@ -52,6 +53,6 @@ export function resendMailer(
 /** Resend when it's configured (always in production; see env.ts), otherwise the log. */
 export function mailerFromEnv(env: Env, log: Pick<Log, 'info'>): SendEmail {
   return env.RESEND_API_KEY && env.EMAIL_FROM
-    ? resendMailer(env.RESEND_API_KEY, env.EMAIL_FROM)
+    ? resendMailer(Redacted.value(env.RESEND_API_KEY), env.EMAIL_FROM)
     : logMailer(log);
 }

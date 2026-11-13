@@ -1,7 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Schema } from 'effect';
+import { Redacted, Schema } from 'effect';
 import { AuthConfig } from '@roundtable/shared';
-import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { accounts, users } from '../src/db/schema.js';
 import { env, setupTestApp, signUp, signUpUnverified, takeEmail, type TestApp } from './helpers.js';
@@ -67,7 +66,7 @@ async function signInWithGitHub(t: TestApp) {
   return {
     authorizeUrl,
     status: callback.statusCode,
-    location: z.string().optional().parse(callback.headers.location),
+    location: callback.headers.location,
     signedIn: callback.cookies.some((c) => c.name.endsWith('session_token') && c.value),
   };
 }
@@ -80,7 +79,10 @@ const githubUser = (email: string, verified = true): FakeGitHubUser => ({
 });
 
 describe('GitHub sign-in', () => {
-  const t = setupTestApp({ env: { GITHUB_CLIENT_ID: 'gh-id', GITHUB_CLIENT_SECRET: 'gh-secret' } });
+  const t = setupTestApp({
+    env: { GITHUB_CLIENT_ID: 'gh-id', GITHUB_CLIENT_SECRET: Redacted.make('gh-secret') },
+  });
+
   beforeAll(() => t.migrate());
   beforeEach(() => t.reset());
   afterEach(() => vi.unstubAllGlobals());

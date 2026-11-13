@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { Effect, Layer } from 'effect';
+import { Effect, Layer, Redacted } from 'effect';
 import { HttpRouter, HttpServer } from 'effect/http';
 import { HttpApi } from 'effect/http-api';
 import { RoundtableApi } from '@roundtable/shared';
@@ -65,11 +65,11 @@ export interface TestAppOptions {
  */
 export function setupTestApp(options: TestAppOptions = {}) {
   const admin = createDb(env.DATABASE_URL);
-  const appDb = options.databaseUrl ? createDb(options.databaseUrl) : admin;
+  const databaseUrl = options.databaseUrl ? Redacted.make(options.databaseUrl) : undefined;
+  const appDb = databaseUrl ? createDb(databaseUrl) : admin;
   const sentEmails: Email[] = [];
-  const appEnv: Env = { ...env, ...options.env };
+  const appEnv: Env = { ...env, ...options.env, ...(databaseUrl && { DATABASE_URL: databaseUrl }) };
 
-  if (options.databaseUrl) appEnv.DATABASE_URL = options.databaseUrl;
   const log = createLogger({ stream: options.logStream, enabled: Boolean(options.logStream) });
 
   const routes = appLayer({

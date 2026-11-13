@@ -1,7 +1,6 @@
 import { EffectDrizzleQueryError } from 'drizzle-orm/effect-core';
 import { DrizzleQueryError } from 'drizzle-orm/errors';
-import { Cause } from 'effect';
-import { z } from 'zod';
+import { Cause, Match, Option, Schema } from 'effect';
 
 // Drizzle's DrizzleQueryError message is "Failed query: <sql>\nparams: <values>". The values can be
 // credentials: Better Auth looks sessions up by the raw token, so a failed lookup puts a live
@@ -28,27 +27,27 @@ export function redactQueryParamsInJson(json: string): string {
   return json.replace(QUERY_PARAMS_IN_JSON, '$1<redacted>');
 }
 
+const isUuid = Schema.is(Schema.String.check(Schema.isUUID()));
+
 /**
  * A parameter's kind without its content: enough to spot "that should have been a uuid" or
- * "this was null". The first matching branch wins, so uuid comes before string.
+ * "this was null". The first matching case wins, so uuid comes before string.
  */
-const paramKind = z
-  .union([
-    z.null().transform(() => 'null'),
-    z.undefined().transform(() => 'undefined'),
-    z.uuid().transform(() => 'uuid'),
-    z.string().transform((value) => `string(${value.length})`),
-    z.number().transform(() => 'number'),
-    z.boolean().transform(() => 'boolean'),
-    z.date().transform(() => 'date'),
-    z.array(z.unknown()).transform((value) => `array(${value.length})`),
-  ])
-  .catch('object');
+const paramKind = <A>(param: A): string =>
+  Match.value<unknown>(param).pipe(
+    Match.when(Match.null, () => 'null'),
+    Match.when(Match.undefined, () => 'undefined'),
+    Match.when(isUuid, () => 'uuid'),
+    Match.when(Match.string, (value) => `string(${value.length})`),
+    Match.when(Match.number, () => 'number'),
+    Match.when(Match.boolean, () => 'boolean'),
+    Match.when(Match.date, () => 'date'),
+    Match.when(Array.isArray, (value) => `array(${value.length})`),
+    Match.orElse(() => 'object'),
+  );
 
 export function describeParams(params: readonly unknown[]): string {
-  return params.length
-    ? `<redacted: ${params.map((param) => paramKind.parse(param)).join(', ')}>`
-    : '<redacted: none>';
+  return params.length ? `<redacted: ${params.map(paramKind).join(', ')}>` : '<redacted: none>';
 }
 
 /**
@@ -73,25 +72,28 @@ export function causeChain(err: Error): Error[] {
  * error @effect/sql-pg raises). Only what describes the schema: `detail`, `hint`, `where` and
  * `internalQuery` can quote values ("Key (email)=(…) already exists"), so they're never read.
  */
-const PostgresError = z.object({
-  code: z.string().regex(/^[0-9A-Z]{5}$/),
-  severity: z.string().optional(),
-  schema: z.string().optional(),
-  table: z.string().optional(),
-  column: z.string().optional(),
-  dataType: z.string().optional(),
-  constraint: z.string().optional(),
-  routine: z.string().optional(),
+const PostgresError = Schema.Struct({
+  code: Schema.String.check(Schema.isPattern(/^[0-9A-Z]{5}$/)),
+  severity: Schema.optional(Schema.String),
+  schema: Schema.optional(Schema.String),
+  table: Schema.optional(Schema.String),
+  column: Schema.optional(Schema.String),
+  dataType: Schema.optional(Schema.String),
+  constraint: Schema.optional(Schema.String),
+  routine: Schema.optional(Schema.String),
 });
+
+/** Only the fields above, so nothing else on the error object comes along. */
+const readPostgresError = Schema.decodeUnknownOption(PostgresError);
 
 /**
  * SQLSTATE class 22 (data exception) messages quote the rejected input: `invalid input syntax
  * for type uuid: "…"`. Keep the message, drop what's in quotes.
  */
 const redactDataException = (err: Error, text: string) => {
-  const postgres = PostgresError.safeParse(err);
+  const postgres = readPostgresError(err);
 
-  return postgres.success && postgres.data.code.startsWith('22')
+  return Option.isSome(postgres) && postgres.value.code.startsWith('22')
     ? text.replace(/"[^"]*"/g, '"<redacted>"')
     : text;
 };
@@ -126,9 +128,9 @@ export function describeError(err: Error): ErrorText {
 /** Postgres's diagnostic fields from the first database error in the chain (see PostgresError). */
 export function postgresFields(err: Error) {
   for (const link of causeChain(err)) {
-    const postgres = PostgresError.safeParse(link);
+    const postgres = readPostgresError(link);
 
-    if (postgres.success) return postgres.data;
+    if (Option.isSome(postgres)) return postgres.value;
   }
 
   return undefined;

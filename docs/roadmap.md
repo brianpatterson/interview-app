@@ -74,8 +74,10 @@ green, and updates `CLAUDE.md` and `docs/architecture.md` as it changes them:
    that name the invalid value. `server.test.ts` checks the production wiring on a real Node
    server.
 5. ✅ **Web:** the web app calls the API through the client generated from the contract
-   (`@roundtable/shared/client`), inside TanStack Query; the Zod contract is gone (Zod remains
-   only for the API's `env.ts` and `redact.ts`). The client checks request bodies before sending
+   (`@roundtable/shared/client`), inside TanStack Query; the Zod contract is gone. A follow-up removed
+   Zod entirely: `env.ts` reads the environment through Effect `Config`, with every secret
+   (database URL, auth secret, OAuth client secrets, Resend key, Sentry DSN) kept `Redacted` so
+   it can't leak through a log line or an error, and `redact.ts` uses Effect Schema. The client checks request bodies before sending
    them, which exposed that `Schema.Trim` refuses to _encode_ untrimmed text: company and job
    title now trim in both directions. `client.test.ts` runs the client against the real server.
    Bundle: 115 → 155 KB gzipped, as the ADR estimated.

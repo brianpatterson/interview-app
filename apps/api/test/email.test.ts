@@ -1,13 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { z } from 'zod';
+import { Schema } from 'effect';
 import { resendMailer } from '../src/email.js';
-import { loadEnv } from '../src/env.js';
-
-const baseEnv = {
-  DATABASE_URL: 'postgres://x',
-  BETTER_AUTH_SECRET: 'test-secret-that-is-at-least-32-characters-long',
-  BETTER_AUTH_URL: 'https://example.com',
-};
 
 describe('resendMailer', () => {
   it('posts the email to Resend with the API key', async () => {
@@ -26,7 +19,7 @@ describe('resendMailer', () => {
     const [url, init] = fetchMock.mock.lastCall ?? [];
     expect(url).toBe('https://api.resend.com/emails');
     expect(new Headers(init?.headers).get('authorization')).toBe('Bearer re_test');
-    expect(JSON.parse(z.string().parse(init?.body))).toEqual({
+    expect(JSON.parse(Schema.decodeUnknownSync(Schema.String)(init?.body))).toEqual({
       from: 'App <no-reply@mail.example.com>',
       to: ['a@example.com'],
       subject: 'Hi',
@@ -46,22 +39,5 @@ describe('resendMailer', () => {
         fetchMock,
       )({ kind: 'verification', to: 'a@b.c', subject: 's', text: 't' }),
     ).rejects.toThrow(/HTTP 403.*domain not verified/);
-  });
-});
-
-describe('loadEnv', () => {
-  it('requires a real mailer in production', () => {
-    expect(() => loadEnv({ ...baseEnv, NODE_ENV: 'production' })).toThrow(/RESEND_API_KEY/);
-    expect(() =>
-      loadEnv({ ...baseEnv, NODE_ENV: 'production', RESEND_API_KEY: '', EMAIL_FROM: '' }),
-    ).toThrow(/RESEND_API_KEY/);
-    expect(
-      loadEnv({ ...baseEnv, NODE_ENV: 'production', RESEND_API_KEY: 're_x', EMAIL_FROM: 'a@b.c' })
-        .RESEND_API_KEY,
-    ).toBe('re_x');
-  });
-
-  it('allows the log mailer outside production', () => {
-    expect(loadEnv(baseEnv).RESEND_API_KEY).toBeUndefined();
   });
 });

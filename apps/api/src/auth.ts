@@ -1,3 +1,4 @@
+import { Redacted } from 'effect';
 import type { AuthProvider } from '@roundtable/shared';
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import { APIError } from 'better-auth/api';
@@ -25,11 +26,17 @@ function socialProviders(env: Env): NonNullable<BetterAuthOptions['socialProvide
   const providers: NonNullable<BetterAuthOptions['socialProviders']> = {};
 
   if (env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET) {
-    providers.github = { clientId: env.GITHUB_CLIENT_ID, clientSecret: env.GITHUB_CLIENT_SECRET };
+    providers.github = {
+      clientId: env.GITHUB_CLIENT_ID,
+      clientSecret: Redacted.value(env.GITHUB_CLIENT_SECRET),
+    };
   }
 
   if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
-    providers.google = { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET };
+    providers.google = {
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: Redacted.value(env.GOOGLE_CLIENT_SECRET),
+    };
   }
 
   return providers;
@@ -44,7 +51,7 @@ export function createAuth(
 ) {
   return betterAuth({
     baseURL: env.BETTER_AUTH_URL,
-    secret: env.BETTER_AUTH_SECRET,
+    secret: Redacted.value(env.BETTER_AUTH_SECRET),
     database: drizzleAdapter(db, {
       provider: 'pg',
       schema: { user: users, session: sessions, account: accounts, verification: verifications },
