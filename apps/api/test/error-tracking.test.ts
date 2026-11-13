@@ -94,7 +94,33 @@ describe('error reporting', () => {
     // Better Auth still answers 200 ("check your email"): the failure is only visible in Sentry.
     expect(res.statusCode).toBe(200);
     await Sentry.flush(2000);
-    expect(events.map((e) => e.exception?.values?.[0]?.value)).toContain('Resend is down');
+    const event = events.find((e) => e.exception?.values?.[0]?.value === 'Resend is down');
+
+    // Which flow broke (ErrorReporter.attributes on EmailSendFailed), never the address.
+    expect(event?.extra).toMatchObject({ emailKind: 'verification' });
+    expect(JSON.stringify(event)).not.toContain('x@example.com');
+    await t.close();
+  });
+
+  it('reports the daily email limit once it drops an email', async () => {
+    const t = setupTestApp({ env: { EMAIL_LIMIT_PER_DAY: 1 } });
+    await t.migrate();
+    await t.reset();
+
+    for (const name of ['a', 'b']) {
+      await t.inject({
+        method: 'POST',
+        url: '/api/auth/sign-up/email',
+        headers: { origin: env.BETTER_AUTH_URL },
+        payload: { email: `${name}@example.com`, password: 'correct horse battery', name },
+      });
+    }
+
+    await Sentry.flush(2000);
+    const event = events.find((e) => e.exception?.values?.[0]?.type === 'DailyEmailLimitReached');
+
+    expect(event?.extra).toMatchObject({ emailKind: 'verification', limit: 1 });
+    expect(t.sentEmails).toHaveLength(1);
     await t.close();
   });
 

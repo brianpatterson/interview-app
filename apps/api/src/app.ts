@@ -15,8 +15,8 @@ import { Database } from './db/effect.js';
 import type { Db } from './db/index.js';
 import { applications } from './db/schema.js';
 import { createServer } from 'node:http';
-import { mailerFromEnv, type SendEmail } from './email.js';
-import { limitedMailer } from './email-limits.js';
+import { EmailTransport, transportFromEnv, type SendEmail } from './email.js';
+import { Mailer } from './email-limits.js';
 import type { Env } from './env.js';
 import { Sentry, SentryErrorReporter } from './error-tracking.js';
 import { effectLoggerLayer, type Log } from './logging.js';
@@ -180,10 +180,10 @@ const ReportErrors = HttpRouter.middleware((httpEffect) => Effect.withErrorRepor
 
 export interface AppOptions {
   env: Env;
-  /** Promise-based Drizzle, for Better Auth and the email limits. */
+  /** Promise-based Drizzle, for Better Auth. */
   db: Db;
   log: Log;
-  /** Replaces the mailer from the environment (tests capture emails with it). */
+  /** Replaces the email transport from the environment (tests capture emails with it). */
   sendEmail?: SendEmail;
 }
 
@@ -193,17 +193,33 @@ export interface AppOptions {
  * (tests); either way the same code answers. Provide observabilityLayer around it.
  */
 export function appLayer({ env, db, log, sendEmail }: AppOptions) {
-  const mailer = limitedMailer(
-    db,
-    sendEmail ?? mailerFromEnv(env, log),
-    { perAddress: env.EMAIL_LIMIT_PER_ADDRESS, perDay: env.EMAIL_LIMIT_PER_DAY },
-    log,
+  const mailer = Mailer.layer({
+    perAddress: env.EMAIL_LIMIT_PER_ADDRESS,
+    perDay: env.EMAIL_LIMIT_PER_DAY,
+  }).pipe(
+    Layer.provide(sendEmail ? EmailTransport.fromPromise(sendEmail) : transportFromEnv(env, log)),
   );
 
-  const auth = createAuth(db, env, mailer, log, (error) => {
-    log.error({ err: error }, 'Unexpected error in auth');
-    Sentry.captureException(error);
-  });
+  // Better Auth calls back with Promises, so its emails run through the Mailer on the context
+  // this layer is built in: the same logger and error reporter as the routes.
+  const betterAuth = Layer.effect(
+    BetterAuth,
+    Effect.gen(function* () {
+      const { send } = yield* Mailer;
+      const run = Effect.runPromiseWith(yield* Effect.context<never>());
+
+      return createAuth(
+        db,
+        env,
+        (email) => run(send(email)),
+        log,
+        (error) => {
+          log.error({ err: error }, 'Unexpected error in auth');
+          Sentry.captureException(error);
+        },
+      );
+    }),
+  );
 
   const api = HttpApiBuilder.layer(RoundtableApi).pipe(
     Layer.provide([SystemLive(env), ApplicationsLive]),
@@ -213,7 +229,8 @@ export function appLayer({ env, db, log, sendEmail }: AppOptions) {
   );
 
   return Layer.mergeAll(api, BetterAuthRoute, ReportErrors).pipe(
-    Layer.provide(Layer.succeed(BetterAuth, auth)),
+    Layer.provide(betterAuth),
+    Layer.provide(mailer),
     Layer.provide(Database.layer(env.DATABASE_URL)),
   );
 }

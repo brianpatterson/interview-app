@@ -255,7 +255,11 @@ flowchart LR
   throwaway Postgres to prove it works. RPO 24 h, RTO about 15 min
   ([ADR-0015](adr/0015-backups.md)).
 - **Email:** Resend's HTTP API, from `no-reply@mail.<domain>`. The API refuses to start in
-  production without its key ([ADR-0017](adr/0017-email-resend.md)).
+  production without its key ([ADR-0017](adr/0017-email-resend.md)). A send that fails with a
+  5xx, the per-second rate limit or a network error is retried twice more within about two
+  seconds, under one idempotency key so Resend never delivers it twice; a 4xx or a used-up quota
+  fails at once. Either way, the failure is logged and reported to Sentry with the email kind
+  (`src/email.ts`, `src/email-limits.ts`).
 - **Monitoring:** Better Stack checks `/api/health` (must report the database up) every 3
   minutes from outside, and opens an incident only if it's still failing 60 seconds later, so a
   deploy's ~10-second gap doesn't page anyone, and expects a ping from every nightly backup. Sentry receives unexpected

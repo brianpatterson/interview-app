@@ -68,3 +68,24 @@ describe('daily email limit', () => {
     expect(resetsTo(t, bob.email)).toBe(0);
   });
 });
+
+describe('limit logging', () => {
+  const lines: string[] = [];
+  const t = setupTestApp({ logStream: { write: (line) => void lines.push(line) } });
+
+  beforeAll(() => t.migrate());
+  beforeEach(() => t.reset());
+  afterAll(() => t.close());
+
+  it('logs a dropped email through pino, with the kind and limit but not the address', async () => {
+    const { email } = await signUp(t);
+
+    for (let i = 0; i < 4; i++) await requestReset(t, email);
+
+    const dropped = lines.filter((line) => line.includes('per-address limit reached'));
+
+    expect(dropped).toHaveLength(1);
+    expect(JSON.parse(dropped[0]!)).toMatchObject({ kind: 'password-reset', limit: 3 });
+    expect(dropped[0]).not.toContain(email);
+  });
+});

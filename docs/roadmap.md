@@ -81,7 +81,15 @@ green, and updates `CLAUDE.md` and `docs/architecture.md` as it changes them:
    them, which exposed that `Schema.Trim` refuses to _encode_ untrimmed text: company and job
    title now trim in both directions. `client.test.ts` runs the client against the real server.
    Bundle: 115 → 155 KB gzipped, as the ADR estimated.
-6. **Email as Effect services:** sending limits, Resend, and a retry on Resend's 5xx errors.
+6. ✅ **Email as Effect services:** an `EmailTransport` (Resend, the log, or a test's capture)
+   under a `Mailer` that applies the sending limits in one Effect transaction. Resend is called
+   with Effect's HttpClient and retried, three attempts in all, on what its docs say is worth
+   retrying (5xx, the per-second rate limit, a concurrent request with the same key, a network
+   failure), never on a 4xx or a used-up quota. One idempotency key per email makes a retry
+   after a timeout safe: Resend delivers it once. Failures and the daily-limit alarm reach Sentry
+   through the `ErrorReporter`, tagged with the email kind. Better Auth's callbacks reach the
+   `Mailer` through a Promise bridge. The spike's interrupted-transaction test is back as
+   `test/database.test.ts`, since the limits' lock depends on it.
 
 **Later: `@sentry/effect` instead of our own reporter.** ADR-0022 named `@sentry/effect`; step 4b
 uses our own `ErrorReporter` (`SentryErrorReporter` in `apps/api/src/error-tracking.ts`, about 15

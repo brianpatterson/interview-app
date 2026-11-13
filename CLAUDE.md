@@ -120,7 +120,13 @@ The API is moving to Effect 4 ([ADR-0022](docs/adr/0022-effect-for-the-api.md), 
   (and trimmed) on the server.
 - **Promise boundaries stay at the edges** (Better Auth's handler, the Promise-based Drizzle
   instance it uses). Never run an Effect inside a Promise callback that holds a resource: an
-  interrupted request leaked a pooled connection that way in the spike.
+  interrupted request leaked a pooled connection that way in the spike. When a library calls
+  back with Promises (Better Auth's email hooks), capture the context while building its layer
+  and run the service with `Effect.runPromiseWith(context)`, as `appLayer` does for the
+  `Mailer`: the callback then logs and reports like a route.
+- **Report failures you handle** with `ErrorReporter.report(cause)` rather than calling Sentry,
+  and give the error `[ErrorReporter.attributes]` for what helps triage (the email kind): the
+  reporter sends them as `extra`. Never put user data in them.
 - **Tests:** `@effect/vitest`. `it.effect` runs on a simulated clock (time passes only through
   `TestClock.adjust`); use `it.live` for anything that waits on real time or I/O
   (`test/effect-testing.test.ts`). Tests still hit the real `app_test` database.
