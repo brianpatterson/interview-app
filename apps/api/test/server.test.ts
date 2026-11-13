@@ -5,10 +5,14 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { ErrorEvent } from '@sentry/node';
 import { Effect, Fiber, Layer, Redacted, Schema } from 'effect';
 import { createServer } from 'node:net';
-import { serverLayer } from '../src/app.js';
-import { createDb } from '../src/db/index.js';
-import { initErrorTracking, scrubEvent, Sentry } from '../src/error-tracking.js';
-import { createLogger } from '../src/logging.js';
+import { serverLayer } from '../src/server.js';
+import { createDb } from '../src/platform/database/promise.js';
+import {
+  initErrorTracking,
+  scrubEvent,
+  Sentry,
+} from '../src/platform/observability/error-tracking.js';
+import { createLogger } from '../src/platform/observability/logging.js';
 import { env, setupTestApp, signUp } from './helpers.js';
 
 const freePort = () =>

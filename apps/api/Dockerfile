@@ -7,9 +7,9 @@ RUN npm install --global pnpm@12.16.1
 # Manifests first, so the dependency layer is cached until a package.json or the lockfile changes.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/
-COPY packages/shared/package.json packages/shared/
+COPY packages/contract/package.json packages/contract/
 RUN pnpm install --frozen-lockfile --filter @roundtable/api...
-COPY packages/shared packages/shared
+COPY packages/contract packages/contract
 COPY apps/api apps/api
 RUN pnpm --filter @roundtable/api build
 
@@ -24,4 +24,4 @@ USER node
 EXPOSE 3001
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
-CMD ["node", "--enable-source-maps", "dist/index.js"]
+CMD ["node", "--enable-source-maps", "dist/main.js"]

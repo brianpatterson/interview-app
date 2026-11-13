@@ -3,12 +3,12 @@
 Track software-engineering job applications. Also a learning project for systems design, a
 "software factory" workflow, and real production deploys.
 
-| Path              | What                                                 |
-| ----------------- | ---------------------------------------------------- |
-| `apps/web`        | React + Vite frontend (http://localhost:5173)        |
-| `apps/api`        | Effect HttpApi + Drizzle API (http://localhost:3001) |
-| `packages/shared` | API contract (Effect `HttpApi`) and typed client     |
-| `docs/`           | Architecture, decisions, dependency register         |
+| Path                | What                                                 |
+| ------------------- | ---------------------------------------------------- |
+| `apps/web`          | React + Vite frontend (http://localhost:5173)        |
+| `apps/api`          | Effect HttpApi + Drizzle API (http://localhost:3001) |
+| `packages/contract` | API contract (Effect `HttpApi`) and typed client     |
+| `docs/`             | Architecture, decisions, dependency register         |
 
 ## Docs
 
@@ -33,7 +33,7 @@ pnpm dev               # start web + api
 - `pnpm check`: everything CI runs (lint, format, typecheck, dependency register, tests)
 - `pnpm lint:fix`: apply Oxlint autofixes (the anti-slop blank-line rule is autofixable)
 - `pnpm test`: API integration tests against the `app_test` database
-- `pnpm db:generate --name <change>`: generate a SQL migration after editing `apps/api/src/db/schema.ts`
+- `pnpm db:generate --name <change>`: generate a SQL migration after editing a module's `schema.ts` (`apps/api/src/modules/*/schema.ts`)
 - `pnpm db:migrate`: apply migrations
 - `pnpm db:down`: stop Postgres (data is kept in a Docker volume)
 

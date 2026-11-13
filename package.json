@@ -16,7 +16,8 @@
     "db:migrate": "pnpm --filter @roundtable/api db:migrate",
     "check:deps": "node scripts/check-dependencies-doc.ts",
     "check:effect": "scripts/check-effect.sh",
-    "check": "pnpm lint && prettier --check . && pnpm typecheck && pnpm check:effect && pnpm check:deps && pnpm test"
+    "check:boundaries": "node scripts/check-boundaries.ts",
+    "check": "pnpm lint && prettier --check . && pnpm typecheck && pnpm check:effect && pnpm check:deps && pnpm check:boundaries && pnpm test"
   },
   "devDependencies": {
     "@effect/tsgo": "0.67.7",

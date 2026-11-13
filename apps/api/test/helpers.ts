@@ -2,13 +2,13 @@ import { sql } from 'drizzle-orm';
 import { Effect, Layer, Redacted } from 'effect';
 import { HttpRouter, HttpServer } from 'effect/http';
 import { HttpApi } from 'effect/http-api';
-import { RoundtableApi } from '@roundtable/shared';
-import { appLayer, observabilityLayer } from '../src/app.js';
-import { createDb } from '../src/db/index.js';
-import { runMigrations } from '../src/db/migrate.js';
-import type { Email, SendEmail } from '../src/email.js';
-import { loadEnv, type Env } from '../src/env.js';
-import { createLogger } from '../src/logging.js';
+import { RoundtableApi } from '@roundtable/contract';
+import { appLayer, observabilityLayer } from '../src/server.js';
+import { createDb } from '../src/platform/database/promise.js';
+import { runMigrations } from '../src/platform/database/migrate.js';
+import type { Email, SendEmail } from '../src/modules/email/index.js';
+import { loadEnv, type Env } from '../src/platform/config/env.js';
+import { createLogger } from '../src/platform/observability/logging.js';
 
 export const env = loadEnv({
   DATABASE_URL: process.env.TEST_DATABASE_URL ?? 'postgres://app:app@localhost:5432/app_test',

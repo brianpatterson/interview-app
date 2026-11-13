@@ -92,7 +92,7 @@ green, and updates `CLAUDE.md` and `docs/architecture.md` as it changes them:
    `test/database.test.ts`, since the limits' lock depends on it.
 
 **Later: `@sentry/effect` instead of our own reporter.** ADR-0022 named `@sentry/effect`; step 4b
-uses our own `ErrorReporter` (`SentryErrorReporter` in `apps/api/src/error-tracking.ts`, about 15
+uses our own `ErrorReporter` (`SentryErrorReporter` in `apps/api/src/platform/observability/error-tracking.ts`, about 15
 lines on `@sentry/node`) instead. The reasons: the package is alpha, we'd use only its reporter,
 it initialises Sentry itself (in place of our tuned `initErrorTracking`), and it pins
 `@sentry/node` to its own exact version. Migrate when **any** of these becomes true:
@@ -110,7 +110,23 @@ The move: replace `SentryErrorReporter` with `Sentry.effectLayer(...)`, passing 
 `initErrorTracking` options (minimal `dataCollection`, `beforeSend: scrubEvent`, console
 breadcrumbs off), and keep `@sentry/node` on its exact version. It's done when the Sentry tests
 pass unchanged, especially `test/server.test.ts` (the real server, every log line and event
-checked for the session token) and the outage tests in `test/error-tracking.test.ts`.
+checked for the session token) and the outage tests in `platform/observability/error-tracking.test.ts`.
+
+## Modular monolith ✅
+
+[ADR-0023](adr/0023-modular-monolith-layout.md): both apps are organized by module, so a module
+can later become its own service, and the web app its own repo or several microfrontends,
+without untangling anything first.
+
+1. ✅ **Layout:** the API in `modules/{applications,identity,email}` plus `platform/`, with
+   colocated tests and each module's tables in its own `schema.ts` (no migration). The contract
+   is `@roundtable/contract`, one file per module. The web app is `shell/`, `modules/` and
+   `shared/`. `pnpm check:boundaries` enforces the import rules.
+2. **Design system:** themed, reusable components in `apps/web/src/design-system/` (tokens,
+   theme, components), consumed by every web module through its `index.ts`. Its own ADR first:
+   styling approach, unstyled primitives for accessibility, theme switching, and whether to add
+   Storybook. It's the first part likely to become a package (`packages/design-system`) once
+   microfrontends build separately.
 
 ## Phase 3: The software factory
 

@@ -1,10 +1,10 @@
-// The Effect HttpApi contract (packages/shared/src/index.ts) is the only schema for the API: the
+// The Effect HttpApi contract (packages/contract) is the only schema for the API: the
 // server decodes requests with it and the web client encodes them with it (ADR-0022). These tests
 // pin down what it accepts, that real responses decode, and that it lists the routes served.
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ErrorReporter, Exit, Schema } from 'effect';
 import { HttpApi } from 'effect/http-api';
-import * as contract from '@roundtable/shared';
+import * as contract from '@roundtable/contract';
 import { setupTestApp, signUp } from './helpers.js';
 
 const long = (n: number) => 'x'.repeat(n);

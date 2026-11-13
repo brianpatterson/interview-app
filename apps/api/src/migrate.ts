@@ -1,6 +1,6 @@
 import { Redacted } from 'effect';
-import { createDb } from './db/index.js';
-import { runMigrations } from './db/migrate.js';
+import { createDb } from './platform/database/promise.js';
+import { runMigrations } from './platform/database/migrate.js';
 
 const url = process.env.DATABASE_URL;
 
