@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { AuthProvider } from '@roundtable/contract';
-import { api } from './api';
+import { api } from '../../shared/api';
 import { authClient } from './auth-client';
 
 type Mode = 'sign-in' | 'sign-up' | 'forgot';

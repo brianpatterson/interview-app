@@ -6,7 +6,7 @@
     "#test/*": "./test/*.ts"
   },
   "scripts": {
-    "dev": "tsx watch --env-file=../../.env src/index.ts",
+    "dev": "tsx watch --env-file=../../.env src/main.ts",
     "build": "node build.ts",
     "start": "node --env-file=../../.env --enable-source-maps dist/main.js",
     "db:generate": "drizzle-kit generate",

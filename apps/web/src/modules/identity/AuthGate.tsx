@@ -1,11 +1,20 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { authClient } from './auth-client';
-import { App } from './App';
 import { ResetPasswordPage } from './ResetPasswordPage';
 import { SignInPage } from './SignInPage';
 
-export function AuthGate() {
+/** What the signed-in part of the app gets from identity. */
+export interface SignedIn {
+  readonly userName: string;
+  readonly signOut: () => Promise<void>;
+}
+
+/**
+ * Shows the sign-in and password-reset pages until there's a session, then renders `children`
+ * with the signed-in user. The shell decides what that is, so identity never imports the shell.
+ */
+export function AuthGate({ children }: { children: (signedIn: SignedIn) => ReactNode }) {
   const queryClient = useQueryClient();
   const session = authClient.useSession();
   // The client re-checks the session after sign-in/sign-up calls. Showing "Loading…" for those
@@ -25,5 +34,5 @@ export function AuthGate() {
     queryClient.clear();
   }
 
-  return <App userName={session.data.user.name} onSignOut={signOut} />;
+  return children({ userName: session.data.user.name, signOut });
 }

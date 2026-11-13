@@ -4,14 +4,15 @@ import {
   isApplicationStatus,
   type ApplicationStatus,
 } from '@roundtable/contract';
-import { api } from './api';
+import { api } from '../../shared/api';
+import { applicationsQueryKey } from './queries';
 
 const formatDate = (date: Date) => date.toLocaleDateString();
 
 export function ApplicationsTable() {
   const queryClient = useQueryClient();
-  const applications = useQuery({ queryKey: ['applications'], queryFn: api.listApplications });
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['applications'] });
+  const applications = useQuery({ queryKey: applicationsQueryKey, queryFn: api.listApplications });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: applicationsQueryKey });
 
   const updateStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: ApplicationStatus }) =>

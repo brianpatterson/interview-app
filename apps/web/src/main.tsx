@@ -1,15 +1,13 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthGate } from './AuthGate';
-import './index.css';
-
-const queryClient = new QueryClient();
+import { App } from './shell/App';
+import { Providers } from './shell/Providers';
+import './shared/styles/index.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AuthGate />
-    </QueryClientProvider>
+    <Providers>
+      <App />
+    </Providers>
   </StrictMode>,
 );

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from './api';
+import { api } from '../../shared/api';
+import { applicationsQueryKey } from './queries';
 
 export function NewApplicationForm() {
   const queryClient = useQueryClient();
@@ -15,7 +16,7 @@ export function NewApplicationForm() {
       setJobTitle('');
       setJobUrl('');
 
-      return queryClient.invalidateQueries({ queryKey: ['applications'] });
+      return queryClient.invalidateQueries({ queryKey: applicationsQueryKey });
     },
   });
 
